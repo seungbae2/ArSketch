@@ -36,8 +36,11 @@ import com.sb.arsketch.ar.core.ARSessionManager
 import com.sb.arsketch.ar.core.ARSessionState
 import com.sb.arsketch.ar.core.ARTrackingState
 import com.sb.arsketch.ar.core.DrawingController
+import com.sb.arsketch.domain.model.DrawingMode
 import com.sb.arsketch.presentation.component.ActionToolbar
 import com.sb.arsketch.presentation.component.BrushToolbar
+import com.sb.arsketch.presentation.component.DepthSlider
+import com.sb.arsketch.presentation.component.DrawingModeToggle
 import com.sb.arsketch.presentation.component.SaveSessionDialog
 import com.sb.arsketch.presentation.component.TrackingStatusIndicator
 import com.sb.arsketch.presentation.state.ARState
@@ -179,14 +182,33 @@ fun DrawingScreen(
             )
         }
 
-        // 상단 상태 표시
-        TrackingStatusIndicator(
-            arState = uiState.arState,
+        // 상단 상태 표시 및 모드 토글
+        Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .statusBarsPadding()
-                .padding(top = 16.dp)
-        )
+                .padding(top = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            TrackingStatusIndicator(arState = uiState.arState)
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            DrawingModeToggle(
+                currentMode = uiState.drawingMode,
+                onModeChange = viewModel::setDrawingMode
+            )
+
+            // Air 모드일 때만 깊이 슬라이더 표시
+            if (uiState.drawingMode == DrawingMode.AIR) {
+                Spacer(modifier = Modifier.height(8.dp))
+                DepthSlider(
+                    depth = uiState.airDrawingDepth,
+                    onDepthChange = viewModel::setAirDrawingDepth,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
+        }
 
         // 하단 툴바
         Column(

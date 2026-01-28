@@ -164,6 +164,10 @@ class DrawingViewModel @Inject constructor(
         _uiState.update { it.copy(drawingMode = mode) }
     }
 
+    fun setAirDrawingDepth(depth: Float) {
+        _uiState.update { it.copy(airDrawingDepth = depth) }
+    }
+
     fun showSaveDialog() {
         _uiState.update { it.copy(showSaveDialog = true) }
     }
