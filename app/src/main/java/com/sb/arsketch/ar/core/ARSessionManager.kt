@@ -10,6 +10,7 @@ import com.google.ar.core.exceptions.CameraNotAvailableException
 import com.google.ar.core.exceptions.UnavailableApkTooOldException
 import com.google.ar.core.exceptions.UnavailableArcoreNotInstalledException
 import com.google.ar.core.exceptions.UnavailableDeviceNotCompatibleException
+import com.google.ar.core.exceptions.SessionPausedException
 import com.google.ar.core.exceptions.UnavailableSdkTooOldException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,6 +37,8 @@ class ARSessionManager @Inject constructor() {
 
     private var session: Session? = null
     private var isInstallRequested = false
+    @Volatile
+    private var isResumed = false
 
     private val _sessionState = MutableStateFlow<ARSessionState>(ARSessionState.NotInitialized)
     val sessionState: StateFlow<ARSessionState> = _sessionState.asStateFlow()
@@ -114,8 +117,10 @@ class ARSessionManager @Inject constructor() {
         session?.let { activeSession ->
             try {
                 activeSession.resume()
+                isResumed = true
                 Timber.d("AR 세션 재개")
             } catch (e: CameraNotAvailableException) {
+                isResumed = false
                 _sessionState.value = ARSessionState.Error("카메라를 사용할 수 없습니다")
                 Timber.e(e, "카메라 사용 불가")
             }
@@ -123,12 +128,14 @@ class ARSessionManager @Inject constructor() {
     }
 
     fun pause() {
+        isResumed = false
         session?.pause()
         _trackingState.value = ARTrackingState.Paused
         Timber.d("AR 세션 일시 중지")
     }
 
     fun destroy() {
+        isResumed = false
         session?.close()
         session = null
         _sessionState.value = ARSessionState.NotInitialized
@@ -141,6 +148,9 @@ class ARSessionManager @Inject constructor() {
     }
 
     fun update(): Frame? {
+        if (!isResumed) {
+            return null
+        }
         return try {
             session?.update()?.also { frame ->
                 val camera = frame.camera
@@ -150,6 +160,10 @@ class ARSessionManager @Inject constructor() {
                     else -> ARTrackingState.NotTracking
                 }
             }
+        } catch (e: SessionPausedException) {
+            Timber.w("세션이 일시 중지된 상태에서 업데이트 시도")
+            isResumed = false
+            null
         } catch (e: CameraNotAvailableException) {
             Timber.e(e, "프레임 업데이트 실패")
             null

@@ -1,5 +1,6 @@
 package com.sb.arsketch.ar.core
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.opengl.GLSurfaceView
 import android.view.MotionEvent
@@ -38,6 +39,7 @@ class ARGLSurfaceView(
 
     fun getARRenderer(): ARRenderer = arRenderer
 
+    @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
