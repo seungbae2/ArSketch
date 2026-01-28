@@ -4,46 +4,40 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import com.sb.arsketch.ar.core.ARSessionManager
+import com.sb.arsketch.ar.core.DrawingController
+import com.sb.arsketch.presentation.navigation.ArSketchNavGraph
 import com.sb.arsketch.ui.theme.ArSketchTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var arSessionManager: ARSessionManager
+
+    @Inject
+    lateinit var drawingController: DrawingController
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // AR 세션 초기화는 권한 획득 후 DrawingScreen에서 수행
+
         setContent {
             ArSketchTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                ArSketchNavGraph(
+                    arSessionManager = arSessionManager,
+                    drawingController = drawingController
+                )
             }
         }
     }
-}
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    ArSketchTheme {
-        Greeting("Android")
+    override fun onDestroy() {
+        super.onDestroy()
+        arSessionManager.destroy()
     }
 }

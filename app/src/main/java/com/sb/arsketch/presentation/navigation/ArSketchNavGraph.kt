@@ -5,6 +5,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.sb.arsketch.ar.core.ARSessionManager
+import com.sb.arsketch.ar.core.DrawingController
 import com.sb.arsketch.presentation.screen.drawing.DrawingScreen
 import com.sb.arsketch.presentation.screen.sessions.SessionListScreen
 
@@ -15,6 +17,8 @@ object Routes {
 
 @Composable
 fun ArSketchNavGraph(
+    arSessionManager: ARSessionManager,
+    drawingController: DrawingController,
     navController: NavHostController = rememberNavController(),
     startDestination: String = Routes.DRAWING
 ) {
@@ -24,6 +28,8 @@ fun ArSketchNavGraph(
     ) {
         composable(Routes.DRAWING) {
             DrawingScreen(
+                arSessionManager = arSessionManager,
+                drawingController = drawingController,
                 onNavigateToSessions = {
                     navController.navigate(Routes.SESSION_LIST)
                 }
