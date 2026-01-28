@@ -7,6 +7,7 @@ import com.sb.arsketch.domain.model.DrawingMode
 import com.sb.arsketch.domain.model.Point3D
 import com.sb.arsketch.domain.model.Stroke
 import com.sb.arsketch.domain.usecase.session.CreateSessionUseCase
+import com.sb.arsketch.domain.usecase.session.LoadSessionUseCase
 import com.sb.arsketch.domain.usecase.session.SaveSessionUseCase
 import com.sb.arsketch.domain.usecase.stroke.AddPointToStrokeUseCase
 import com.sb.arsketch.domain.usecase.stroke.ClearAllStrokesUseCase
@@ -33,7 +34,8 @@ class DrawingViewModel @Inject constructor(
     private val redoStrokeUseCase: RedoStrokeUseCase,
     private val clearAllStrokesUseCase: ClearAllStrokesUseCase,
     private val saveSessionUseCase: SaveSessionUseCase,
-    private val createSessionUseCase: CreateSessionUseCase
+    private val createSessionUseCase: CreateSessionUseCase,
+    private val loadSessionUseCase: LoadSessionUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DrawingUiState())
@@ -213,6 +215,39 @@ class DrawingViewModel @Inject constructor(
 
     fun clearError() {
         _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    /**
+     * 저장된 세션 불러오기
+     */
+    fun loadSession(sessionId: String) {
+        viewModelScope.launch {
+            try {
+                val result = loadSessionUseCase(sessionId)
+                if (result != null) {
+                    val (session, strokes) = result
+                    currentSessionId = session.id
+
+                    _uiState.update {
+                        it.copy(
+                            strokes = strokes,
+                            currentStroke = null,
+                            undoneStrokes = emptyList(),
+                            sessionName = session.name,
+                            canUndo = strokes.isNotEmpty(),
+                            canRedo = false
+                        )
+                    }
+
+                    Timber.d("세션 불러오기 완료: ${session.id}, 스트로크 수: ${strokes.size}")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "세션 불러오기 실패")
+                _uiState.update {
+                    it.copy(errorMessage = "세션을 불러오는데 실패했습니다")
+                }
+            }
+        }
     }
 
     fun getStrokesForRendering(): Pair<List<Stroke>, Stroke?> {

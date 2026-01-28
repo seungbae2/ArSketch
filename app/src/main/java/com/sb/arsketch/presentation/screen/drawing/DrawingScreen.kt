@@ -209,7 +209,8 @@ fun DrawingScreen(
                 onUndo = viewModel::undo,
                 onRedo = viewModel::redo,
                 onClear = viewModel::clearAll,
-                onSave = viewModel::showSaveDialog
+                onSave = viewModel::showSaveDialog,
+                onShowSessions = onNavigateToSessions
             )
         }
 
