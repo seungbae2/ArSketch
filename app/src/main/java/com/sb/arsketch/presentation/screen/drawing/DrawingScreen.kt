@@ -45,6 +45,7 @@ import com.sb.arsketch.presentation.component.ActionToolbar
 import com.sb.arsketch.presentation.component.BrushToolbar
 import com.sb.arsketch.presentation.component.DepthSlider
 import com.sb.arsketch.presentation.component.DrawingModeToggle
+import com.sb.arsketch.presentation.component.PlaneVisibilityToggle
 import com.sb.arsketch.presentation.component.SaveSessionDialog
 import com.sb.arsketch.presentation.component.TrackingStatusIndicator
 import com.sb.arsketch.presentation.state.ARState
@@ -144,6 +145,11 @@ fun DrawingScreen(
         drawingController.setDrawingMode(uiState.drawingMode)
     }
 
+    // 평면 표시 상태 동기화
+    LaunchedEffect(uiState.showPlanes) {
+        glSurfaceView?.getARRenderer()?.showPlanes = uiState.showPlanes
+    }
+
     // 라이프사이클 관찰
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -222,6 +228,15 @@ fun DrawingScreen(
                 currentMode = uiState.drawingMode,
                 onModeChange = viewModel::setDrawingMode
             )
+
+            // Surface 모드일 때 평면 표시 토글
+            if (uiState.drawingMode == DrawingMode.SURFACE) {
+                Spacer(modifier = Modifier.height(8.dp))
+                PlaneVisibilityToggle(
+                    showPlanes = uiState.showPlanes,
+                    onToggle = viewModel::toggleShowPlanes
+                )
+            }
 
             // Air 모드일 때만 깊이 슬라이더 표시
             if (uiState.drawingMode == DrawingMode.AIR) {

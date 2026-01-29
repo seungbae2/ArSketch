@@ -12,6 +12,7 @@ data class DrawingUiState(
     val brushSettings: BrushSettings = BrushSettings.DEFAULT,
     val drawingMode: DrawingMode = DrawingMode.SURFACE,
     val airDrawingDepth: Float = 1.5f,  // Air Drawing 깊이 (미터)
+    val showPlanes: Boolean = true,     // 평면 시각화 표시 여부
     val canUndo: Boolean = false,
     val canRedo: Boolean = false,
     val showSaveDialog: Boolean = false,

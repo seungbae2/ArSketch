@@ -4,6 +4,7 @@ import android.content.Context
 import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import com.google.ar.core.Frame
+import com.google.ar.core.Plane
 import com.google.ar.core.TrackingState
 import com.sb.arsketch.ar.core.AnchorManager
 import com.sb.arsketch.ar.core.ARSessionManager
@@ -19,7 +20,12 @@ class ARRenderer(
 ) : GLSurfaceView.Renderer {
 
     private val backgroundRenderer = BackgroundRenderer()
+    private val planeRenderer = PlaneRenderer()
     private val strokeRenderer = StrokeRenderer()
+
+    // 평면 시각화 활성화 여부
+    @Volatile
+    var showPlanes: Boolean = true
 
     private var viewportWidth = 0
     private var viewportHeight = 0
@@ -46,6 +52,7 @@ class ARRenderer(
         GLES30.glClearColor(0.1f, 0.1f, 0.1f, 1.0f)
 
         backgroundRenderer.initialize(context)
+        planeRenderer.initialize(context)
         strokeRenderer.initialize(context)
 
         arSessionManager.getSession()?.let { session ->
@@ -82,6 +89,15 @@ class ARRenderer(
             camera.getViewMatrix(viewMatrix, 0)
             camera.getProjectionMatrix(projectionMatrix, 0, 0.1f, 100f)
 
+            // 감지된 평면 렌더링
+            if (showPlanes) {
+                val planes = arSessionManager.getSession()
+                    ?.getAllTrackables(Plane::class.java)
+                    ?: emptyList()
+                planeRenderer.draw(planes, viewMatrix, projectionMatrix)
+            }
+
+            // 스트로크 렌더링
             strokeRenderer.updateStrokes(strokes, currentStroke)
             strokeRenderer.draw(
                 strokes = strokes,
@@ -111,6 +127,7 @@ class ARRenderer(
     fun release() {
         isTextureSet = false
         backgroundRenderer.release()
+        planeRenderer.release()
         strokeRenderer.release()
     }
 }

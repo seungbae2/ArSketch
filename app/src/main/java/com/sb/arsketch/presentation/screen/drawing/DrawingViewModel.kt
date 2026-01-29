@@ -173,6 +173,10 @@ class DrawingViewModel @Inject constructor(
         _uiState.update { it.copy(airDrawingDepth = depth) }
     }
 
+    fun toggleShowPlanes() {
+        _uiState.update { it.copy(showPlanes = !it.showPlanes) }
+    }
+
     fun showSaveDialog() {
         _uiState.update { it.copy(showSaveDialog = true) }
     }
