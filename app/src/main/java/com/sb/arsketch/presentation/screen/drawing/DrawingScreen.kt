@@ -86,6 +86,10 @@ fun DrawingScreen(
     // GLSurfaceView 참조
     var glSurfaceView: ARGLSurfaceView? by remember { mutableStateOf(null) }
 
+    // AR 세션 준비 상태
+    val sessionState by arSessionManager.sessionState.collectAsState()
+    val isSessionReady = sessionState == ARSessionState.Ready
+
     // 권한 확인 및 요청
     LaunchedEffect(Unit) {
         if (hasCameraPermission) {
@@ -97,14 +101,12 @@ fun DrawingScreen(
         }
     }
 
-    // AR 세션 상태 관찰
-    LaunchedEffect(arSessionManager) {
-        arSessionManager.sessionState.collect { state ->
-            when (state) {
-                is ARSessionState.Ready -> viewModel.updateARState(ARState.Searching)
-                is ARSessionState.Error -> viewModel.updateARState(ARState.Error(state.message))
-                else -> {}
-            }
+    // AR 세션 상태 관찰 (UI 상태 업데이트용)
+    LaunchedEffect(sessionState) {
+        when (sessionState) {
+            is ARSessionState.Ready -> viewModel.updateARState(ARState.Searching)
+            is ARSessionState.Error -> viewModel.updateARState(ARState.Error((sessionState as ARSessionState.Error).message))
+            else -> {}
         }
     }
 
@@ -159,8 +161,8 @@ fun DrawingScreen(
 
     // UI
     Box(modifier = Modifier.fillMaxSize()) {
-        // AR GLSurfaceView
-        if (hasCameraPermission) {
+        // AR GLSurfaceView - 권한과 세션 모두 준비되었을 때만 표시
+        if (hasCameraPermission && isSessionReady) {
             AndroidView(
                 factory = { ctx ->
                     ARGLSurfaceView(ctx, arSessionManager).also { view ->
