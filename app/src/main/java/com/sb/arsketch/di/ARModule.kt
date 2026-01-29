@@ -1,5 +1,6 @@
 package com.sb.arsketch.di
 
+import com.sb.arsketch.ar.core.AnchorManager
 import com.sb.arsketch.ar.core.ARSessionManager
 import com.sb.arsketch.ar.core.DrawingController
 import com.sb.arsketch.ar.util.AirDrawingProjector
@@ -44,9 +45,16 @@ object ARModule {
 
     @Provides
     @Singleton
+    fun provideAnchorManager(): AnchorManager {
+        return AnchorManager()
+    }
+
+    @Provides
+    @Singleton
     fun provideDrawingController(
-        touchToWorldConverter: TouchToWorldConverter
+        touchToWorldConverter: TouchToWorldConverter,
+        anchorManager: AnchorManager
     ): DrawingController {
-        return DrawingController(touchToWorldConverter)
+        return DrawingController(touchToWorldConverter, anchorManager)
     }
 }

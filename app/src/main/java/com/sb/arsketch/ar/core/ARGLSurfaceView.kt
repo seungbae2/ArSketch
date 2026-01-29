@@ -13,7 +13,8 @@ import timber.log.Timber
  */
 class ARGLSurfaceView(
     context: Context,
-    private val arSessionManager: ARSessionManager
+    private val arSessionManager: ARSessionManager,
+    private val anchorManager: AnchorManager
 ) : GLSurfaceView(context) {
 
     private val arRenderer: ARRenderer
@@ -28,7 +29,7 @@ class ARGLSurfaceView(
         setEGLContextClientVersion(3)
 
         // 렌더러 생성 및 설정
-        arRenderer = ARRenderer(context, arSessionManager)
+        arRenderer = ARRenderer(context, arSessionManager, anchorManager)
         setRenderer(arRenderer)
 
         // 연속 렌더링 모드

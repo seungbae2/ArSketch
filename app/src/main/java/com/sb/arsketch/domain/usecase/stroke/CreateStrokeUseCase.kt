@@ -10,8 +10,9 @@ class CreateStrokeUseCase @Inject constructor() {
     operator fun invoke(
         startPoint: Point3D,
         brush: BrushSettings,
-        mode: DrawingMode
+        mode: DrawingMode,
+        anchorId: String? = null
     ): Stroke {
-        return Stroke.create(startPoint, brush, mode)
+        return Stroke.create(startPoint, brush, mode, anchorId)
     }
 }

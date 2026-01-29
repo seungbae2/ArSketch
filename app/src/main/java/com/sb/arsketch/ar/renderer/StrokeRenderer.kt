@@ -7,6 +7,8 @@ import com.sb.arsketch.ar.geometry.LineStripMesh
 import com.sb.arsketch.domain.model.Stroke
 import java.util.concurrent.ConcurrentHashMap
 
+typealias AnchorModelMatrixProvider = (anchorId: String, matrix: FloatArray, offset: Int) -> Boolean
+
 class StrokeRenderer {
 
     companion object {
@@ -73,26 +75,29 @@ class StrokeRenderer {
         strokes: List<Stroke>,
         currentStroke: Stroke?,
         viewMatrix: FloatArray,
-        projectionMatrix: FloatArray
+        projectionMatrix: FloatArray,
+        anchorModelMatrixProvider: AnchorModelMatrixProvider? = null
     ) {
         if (program == 0) return
 
         GLES30.glUseProgram(program)
         GLES30.glEnable(GLES30.GL_DEPTH_TEST)
 
+        val modelMatrix = FloatArray(16)
+        val mvMatrix = FloatArray(16)
         val mvpMatrix = FloatArray(16)
 
         strokes.forEach { stroke ->
             strokeMeshes[stroke.id]?.let { mesh ->
                 mesh.uploadToGPU()
-                drawStroke(mesh, stroke, viewMatrix, projectionMatrix, mvpMatrix)
+                drawStroke(mesh, stroke, viewMatrix, projectionMatrix, modelMatrix, mvMatrix, mvpMatrix, anchorModelMatrixProvider)
             }
         }
 
         currentStroke?.let { stroke ->
             currentStrokeMesh?.let { mesh ->
                 mesh.uploadToGPU()
-                drawStroke(mesh, stroke, viewMatrix, projectionMatrix, mvpMatrix)
+                drawStroke(mesh, stroke, viewMatrix, projectionMatrix, modelMatrix, mvMatrix, mvpMatrix, anchorModelMatrixProvider)
             }
         }
     }
@@ -102,11 +107,26 @@ class StrokeRenderer {
         stroke: Stroke,
         viewMatrix: FloatArray,
         projectionMatrix: FloatArray,
-        mvpMatrix: FloatArray
+        modelMatrix: FloatArray,
+        mvMatrix: FloatArray,
+        mvpMatrix: FloatArray,
+        anchorModelMatrixProvider: AnchorModelMatrixProvider?
     ) {
         if (mesh.getVertexCount() < 2) return
 
-        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, viewMatrix, 0)
+        // Anchor가 있으면 model matrix로 사용, 없으면 단위 행렬
+        val hasAnchor = stroke.anchorId?.let { anchorId ->
+            anchorModelMatrixProvider?.invoke(anchorId, modelMatrix, 0) == true
+        } ?: false
+
+        if (!hasAnchor) {
+            // Anchor 없음: 단위 행렬 (기존 동작)
+            Matrix.setIdentityM(modelMatrix, 0)
+        }
+
+        // MVP = Projection * View * Model
+        Matrix.multiplyMM(mvMatrix, 0, viewMatrix, 0, modelMatrix, 0)
+        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, mvMatrix, 0)
         GLES30.glUniformMatrix4fv(mvpMatrixHandle, 1, false, mvpMatrix, 0)
 
         val color = floatArrayOf(

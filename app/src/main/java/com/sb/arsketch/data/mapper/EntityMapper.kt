@@ -45,6 +45,7 @@ object EntityMapper {
 
         return Stroke(
             id = id,
+            anchorId = anchorId,
             points = points,
             color = color,
             thickness = thickness,
@@ -57,6 +58,7 @@ object EntityMapper {
         return StrokeEntity(
             id = id,
             sessionId = sessionId,
+            anchorId = anchorId,
             color = color,
             thickness = thickness,
             mode = mode.name,

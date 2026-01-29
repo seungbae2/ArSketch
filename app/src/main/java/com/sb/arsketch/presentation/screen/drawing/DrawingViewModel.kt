@@ -48,11 +48,16 @@ class DrawingViewModel @Inject constructor(
     }
 
     fun onTouchStart(point: Point3D) {
+        onTouchStartWithAnchor(point, null)
+    }
+
+    fun onTouchStartWithAnchor(point: Point3D, anchorId: String?) {
         val state = _uiState.value
         val stroke = createStrokeUseCase(
             startPoint = point,
             brush = state.brushSettings,
-            mode = state.drawingMode
+            mode = state.drawingMode,
+            anchorId = anchorId
         )
 
         _uiState.update {
@@ -63,7 +68,7 @@ class DrawingViewModel @Inject constructor(
             )
         }
 
-        Timber.d("스트로크 시작: ${stroke.id}")
+        Timber.d("스트로크 시작: ${stroke.id}, anchorId: $anchorId")
     }
 
     fun onTouchMove(point: Point3D) {

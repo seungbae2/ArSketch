@@ -21,6 +21,7 @@ data class StrokeEntity(
     @PrimaryKey
     val id: String,
     val sessionId: String,
+    val anchorId: String? = null,  // Anchor ID (현재 세션에서만 유효)
     val color: Int,
     val thickness: Float,
     val mode: String,

@@ -1,6 +1,8 @@
 package com.sb.arsketch.ar.core
 
 import com.google.ar.core.Frame
+import com.google.ar.core.Pose
+import com.sb.arsketch.ar.util.ConversionResult
 import com.sb.arsketch.ar.util.TouchToWorldConverter
 import com.sb.arsketch.domain.model.DrawingMode
 import com.sb.arsketch.domain.model.Point3D
@@ -9,12 +11,21 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
+ * 스트로크 시작 정보 (Anchor 포함)
+ */
+data class StrokeStartInfo(
+    val localPoint: Point3D,  // Anchor 기준 로컬 좌표
+    val anchorId: String?     // Anchor ID (Surface 모드에서만)
+)
+
+/**
  * 드로잉 컨트롤러
  * 터치 이벤트를 월드 좌표로 변환하고 콜백 전달
  */
 @Singleton
 class DrawingController @Inject constructor(
-    private val touchToWorldConverter: TouchToWorldConverter
+    private val touchToWorldConverter: TouchToWorldConverter,
+    private val anchorManager: AnchorManager
 ) {
     // 현재 AR 프레임 (렌더 루프에서 업데이트)
     @Volatile
@@ -28,13 +39,21 @@ class DrawingController @Inject constructor(
     @Volatile
     private var drawingMode: DrawingMode = DrawingMode.SURFACE
 
-    // 콜백
-    var onStrokeStart: ((Point3D) -> Unit)? = null
+    // 콜백 (Anchor 정보 포함)
+    var onStrokeStartWithAnchor: ((StrokeStartInfo) -> Unit)? = null
     var onStrokePoint: ((Point3D) -> Unit)? = null
     var onStrokeEnd: (() -> Unit)? = null
 
+    // 기존 콜백 (호환성 유지)
+    @Deprecated("Use onStrokeStartWithAnchor instead")
+    var onStrokeStart: ((Point3D) -> Unit)? = null
+
     // 드로잉 상태
     private var isDrawing = false
+
+    // 현재 스트로크의 Anchor 정보
+    private var currentAnchorId: String? = null
+    private var currentAnchorPose: Pose? = null
 
     /**
      * 프레임 업데이트 (렌더 루프에서 호출)
@@ -65,7 +84,7 @@ class DrawingController @Inject constructor(
         val frame = currentFrame ?: return
         if (viewportWidth <= 0 || viewportHeight <= 0) return
 
-        val point = touchToWorldConverter.convert(
+        val result = touchToWorldConverter.convertWithDetails(
             frame = frame,
             screenX = screenX,
             screenY = screenY,
@@ -74,10 +93,40 @@ class DrawingController @Inject constructor(
             mode = drawingMode
         )
 
-        if (point != null) {
-            isDrawing = true
-            onStrokeStart?.invoke(point)
-            Timber.d("드로잉 시작: $point")
+        when (result) {
+            is ConversionResult.SurfaceHit -> {
+                // Surface 모드: Anchor 생성 후 로컬 좌표로 변환
+                val anchorId = anchorManager.createAnchor(result.hitResult)
+                if (anchorId != null) {
+                    val anchorPose = anchorManager.getAnchorPose(anchorId)
+                    if (anchorPose != null) {
+                        currentAnchorId = anchorId
+                        currentAnchorPose = anchorPose
+
+                        // 첫 번째 점은 Anchor 위치이므로 로컬 좌표는 원점
+                        val localPoint = Point3D.ZERO
+
+                        isDrawing = true
+                        onStrokeStartWithAnchor?.invoke(StrokeStartInfo(localPoint, anchorId))
+                        onStrokeStart?.invoke(localPoint)
+                        Timber.d("드로잉 시작 (Surface): anchorId=$anchorId, localPoint=$localPoint")
+                    } else {
+                        anchorManager.releaseAnchor(anchorId)
+                    }
+                }
+            }
+            is ConversionResult.AirPoint -> {
+                // Air 모드: Anchor 없이 월드 좌표 사용 (현재 미지원)
+                currentAnchorId = null
+                currentAnchorPose = null
+                isDrawing = true
+                onStrokeStartWithAnchor?.invoke(StrokeStartInfo(result.worldPoint, null))
+                onStrokeStart?.invoke(result.worldPoint)
+                Timber.d("드로잉 시작 (Air): ${result.worldPoint}")
+            }
+            is ConversionResult.NoHit -> {
+                Timber.v("드로잉 시작 실패: 히트 없음")
+            }
         }
     }
 
@@ -89,7 +138,7 @@ class DrawingController @Inject constructor(
 
         val frame = currentFrame ?: return
 
-        val point = touchToWorldConverter.convert(
+        val result = touchToWorldConverter.convertWithDetails(
             frame = frame,
             screenX = screenX,
             screenY = screenY,
@@ -98,8 +147,22 @@ class DrawingController @Inject constructor(
             mode = drawingMode
         )
 
-        if (point != null) {
-            onStrokePoint?.invoke(point)
+        when (result) {
+            is ConversionResult.SurfaceHit -> {
+                // Surface 모드: Anchor 기준 로컬 좌표로 변환
+                val anchorPose = currentAnchorPose
+                if (anchorPose != null) {
+                    val localPoint = touchToWorldConverter.worldToLocal(result.worldPoint, anchorPose)
+                    onStrokePoint?.invoke(localPoint)
+                }
+            }
+            is ConversionResult.AirPoint -> {
+                // Air 모드: 월드 좌표 그대로 사용
+                onStrokePoint?.invoke(result.worldPoint)
+            }
+            is ConversionResult.NoHit -> {
+                // 히트 없음 - 무시
+            }
         }
     }
 
@@ -109,6 +172,8 @@ class DrawingController @Inject constructor(
     fun onTouchUp() {
         if (isDrawing) {
             isDrawing = false
+            currentAnchorId = null
+            currentAnchorPose = null
             onStrokeEnd?.invoke()
             Timber.d("드로잉 종료")
         }
@@ -118,4 +183,9 @@ class DrawingController @Inject constructor(
      * 현재 드로잉 중인지 확인
      */
     fun isCurrentlyDrawing(): Boolean = isDrawing
+
+    /**
+     * 현재 스트로크의 Anchor ID
+     */
+    fun getCurrentAnchorId(): String? = currentAnchorId
 }

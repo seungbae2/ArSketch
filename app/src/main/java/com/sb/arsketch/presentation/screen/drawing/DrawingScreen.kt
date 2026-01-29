@@ -34,6 +34,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.sb.arsketch.ar.core.AnchorManager
 import com.sb.arsketch.ar.core.ARGLSurfaceView
 import com.sb.arsketch.ar.core.ARSessionManager
 import com.sb.arsketch.ar.core.ARSessionState
@@ -57,6 +58,7 @@ fun DrawingScreen(
     viewModel: DrawingViewModel = hiltViewModel(),
     arSessionManager: ARSessionManager,
     drawingController: DrawingController,
+    anchorManager: AnchorManager,
     onNavigateToSessions: () -> Unit
 ) {
     val context = LocalContext.current
@@ -126,8 +128,8 @@ fun DrawingScreen(
 
     // 드로잉 컨트롤러 콜백 설정
     LaunchedEffect(drawingController) {
-        drawingController.onStrokeStart = { point ->
-            viewModel.onTouchStart(point)
+        drawingController.onStrokeStartWithAnchor = { info ->
+            viewModel.onTouchStartWithAnchor(info.localPoint, info.anchorId)
         }
         drawingController.onStrokePoint = { point ->
             viewModel.onTouchMove(point)
@@ -165,7 +167,7 @@ fun DrawingScreen(
         if (hasCameraPermission && isSessionReady) {
             AndroidView(
                 factory = { ctx ->
-                    ARGLSurfaceView(ctx, arSessionManager).also { view ->
+                    ARGLSurfaceView(ctx, arSessionManager, anchorManager).also { view ->
                         glSurfaceView = view
 
                         // 터치 이벤트 연결

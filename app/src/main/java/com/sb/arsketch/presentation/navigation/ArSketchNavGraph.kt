@@ -9,6 +9,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.sb.arsketch.ar.core.AnchorManager
 import com.sb.arsketch.ar.core.ARSessionManager
 import com.sb.arsketch.ar.core.DrawingController
 import com.sb.arsketch.presentation.screen.drawing.DrawingScreen
@@ -33,6 +34,7 @@ object Routes {
 fun ArSketchNavGraph(
     arSessionManager: ARSessionManager,
     drawingController: DrawingController,
+    anchorManager: AnchorManager,
     navController: NavHostController = rememberNavController(),
     startDestination: String = Routes.DRAWING
 ) {
@@ -45,6 +47,7 @@ fun ArSketchNavGraph(
             DrawingScreen(
                 arSessionManager = arSessionManager,
                 drawingController = drawingController,
+                anchorManager = anchorManager,
                 onNavigateToSessions = {
                     navController.navigate(Routes.SESSION_LIST)
                 }
@@ -70,6 +73,7 @@ fun ArSketchNavGraph(
                 viewModel = viewModel,
                 arSessionManager = arSessionManager,
                 drawingController = drawingController,
+                anchorManager = anchorManager,
                 onNavigateToSessions = {
                     navController.navigate(Routes.SESSION_LIST)
                 }

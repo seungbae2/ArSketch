@@ -10,8 +10,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 sealed class HitTestResult {
-    data class PlaneHit(val point: Point3D, val plane: Plane) : HitTestResult()
-    object NoHit : HitTestResult()
+    data class PlaneHit(
+        val point: Point3D,
+        val plane: Plane,
+        val hitResult: HitResult  // Anchor 생성용
+    ) : HitTestResult()
+    data object NoHit : HitTestResult()
 }
 
 @Singleton
@@ -38,7 +42,7 @@ class HitTestHelper @Inject constructor() {
                     z = pose.tz()
                 )
                 Timber.v("히트 테스트 성공: $point")
-                return HitTestResult.PlaneHit(point, trackable)
+                return HitTestResult.PlaneHit(point, trackable, hit)
             }
         }
 

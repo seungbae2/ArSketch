@@ -5,6 +5,7 @@ import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import com.google.ar.core.Frame
 import com.google.ar.core.TrackingState
+import com.sb.arsketch.ar.core.AnchorManager
 import com.sb.arsketch.ar.core.ARSessionManager
 import com.sb.arsketch.domain.model.Stroke
 import timber.log.Timber
@@ -13,7 +14,8 @@ import javax.microedition.khronos.opengles.GL10
 
 class ARRenderer(
     private val context: Context,
-    private val arSessionManager: ARSessionManager
+    private val arSessionManager: ARSessionManager,
+    private val anchorManager: AnchorManager
 ) : GLSurfaceView.Renderer {
 
     private val backgroundRenderer = BackgroundRenderer()
@@ -81,7 +83,15 @@ class ARRenderer(
             camera.getProjectionMatrix(projectionMatrix, 0, 0.1f, 100f)
 
             strokeRenderer.updateStrokes(strokes, currentStroke)
-            strokeRenderer.draw(strokes, currentStroke, viewMatrix, projectionMatrix)
+            strokeRenderer.draw(
+                strokes = strokes,
+                currentStroke = currentStroke,
+                viewMatrix = viewMatrix,
+                projectionMatrix = projectionMatrix,
+                anchorModelMatrixProvider = { anchorId, matrix, offset ->
+                    anchorManager.getAnchorModelMatrix(anchorId, matrix, offset)
+                }
+            )
         }
 
         onFrameUpdate?.invoke(frame)

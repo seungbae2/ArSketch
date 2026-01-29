@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.sb.arsketch.ar.core.AnchorManager
 import com.sb.arsketch.ar.core.ARSessionManager
 import com.sb.arsketch.ar.core.DrawingController
 import com.sb.arsketch.presentation.navigation.ArSketchNavGraph
@@ -20,6 +21,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var drawingController: DrawingController
 
+    @Inject
+    lateinit var anchorManager: AnchorManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -30,7 +34,8 @@ class MainActivity : ComponentActivity() {
             ArSketchTheme {
                 ArSketchNavGraph(
                     arSessionManager = arSessionManager,
-                    drawingController = drawingController
+                    drawingController = drawingController,
+                    anchorManager = anchorManager
                 )
             }
         }
@@ -38,6 +43,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        anchorManager.releaseAll()
         arSessionManager.destroy()
     }
 }
