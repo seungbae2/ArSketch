@@ -11,6 +11,7 @@ import com.google.ar.core.exceptions.UnavailableApkTooOldException
 import com.google.ar.core.exceptions.UnavailableArcoreNotInstalledException
 import com.google.ar.core.exceptions.UnavailableDeviceNotCompatibleException
 import com.google.ar.core.exceptions.SessionPausedException
+import com.google.ar.core.exceptions.TextureNotSetException
 import com.google.ar.core.exceptions.UnavailableSdkTooOldException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -169,6 +170,9 @@ class ARSessionManager @Inject constructor() {
         } catch (e: SessionPausedException) {
             Timber.w("세션이 일시 중지된 상태에서 업데이트 시도")
             isResumed = false
+            null
+        } catch (e: TextureNotSetException) {
+            Timber.w("카메라 텍스처가 설정되지 않음")
             null
         } catch (e: CameraNotAvailableException) {
             Timber.e(e, "프레임 업데이트 실패")

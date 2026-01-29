@@ -31,17 +31,26 @@ class ARRenderer(
     @Volatile
     private var currentStroke: Stroke? = null
 
+    @Volatile
+    private var isTextureSet = false
+
     var onFrameUpdate: ((Frame) -> Unit)? = null
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         Timber.d("OpenGL Surface 생성")
+
+        isTextureSet = false
 
         GLES30.glClearColor(0.1f, 0.1f, 0.1f, 1.0f)
 
         backgroundRenderer.initialize(context)
         strokeRenderer.initialize(context)
 
-        arSessionManager.getSession()?.setCameraTextureName(backgroundRenderer.getTextureId())
+        arSessionManager.getSession()?.let { session ->
+            session.setCameraTextureName(backgroundRenderer.getTextureId())
+            isTextureSet = true
+            Timber.d("카메라 텍스처 설정 완료: ${backgroundRenderer.getTextureId()}")
+        }
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
@@ -56,6 +65,11 @@ class ARRenderer(
 
     override fun onDrawFrame(gl: GL10?) {
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
+
+        // 텍스처가 설정되지 않았으면 스킵
+        if (!isTextureSet) {
+            return
+        }
 
         val frame = arSessionManager.update() ?: return
 
@@ -85,6 +99,7 @@ class ARRenderer(
     }
 
     fun release() {
+        isTextureSet = false
         backgroundRenderer.release()
         strokeRenderer.release()
     }
