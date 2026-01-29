@@ -47,6 +47,12 @@ class ARSessionManager @Inject constructor() {
     val trackingState: StateFlow<ARTrackingState> = _trackingState.asStateFlow()
 
     fun checkAndInitialize(activity: Activity): Boolean {
+        // 이미 세션이 존재하면 재사용
+        if (session != null && _sessionState.value == ARSessionState.Ready) {
+            Timber.d("기존 AR 세션 재사용")
+            return true
+        }
+
         _sessionState.value = ARSessionState.Initializing
 
         val availability = ArCoreApk.getInstance().checkAvailability(activity)

@@ -2,8 +2,10 @@ package com.sb.arsketch.presentation.screen.drawing
 
 import android.Manifest
 import android.app.Activity
+import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -63,8 +65,13 @@ fun DrawingScreen(
 
     val uiState by viewModel.uiState.collectAsState()
 
-    // 카메라 권한 상태
-    var hasCameraPermission by remember { mutableStateOf(false) }
+    // 카메라 권한 상태 - 초기값으로 현재 권한 상태 확인
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+                PackageManager.PERMISSION_GRANTED
+        )
+    }
 
     // 권한 요청 런처
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -79,9 +86,15 @@ fun DrawingScreen(
     // GLSurfaceView 참조
     var glSurfaceView: ARGLSurfaceView? by remember { mutableStateOf(null) }
 
-    // 권한 요청
+    // 권한 확인 및 요청
     LaunchedEffect(Unit) {
-        permissionLauncher.launch(Manifest.permission.CAMERA)
+        if (hasCameraPermission) {
+            // 이미 권한이 있으면 세션 초기화만 수행
+            activity?.let { arSessionManager.checkAndInitialize(it) }
+        } else {
+            // 권한이 없으면 요청
+            permissionLauncher.launch(Manifest.permission.CAMERA)
+        }
     }
 
     // AR 세션 상태 관찰
