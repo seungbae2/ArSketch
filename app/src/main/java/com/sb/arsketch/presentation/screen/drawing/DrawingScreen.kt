@@ -192,6 +192,12 @@ fun DrawingScreen(
                         view.post {
                             drawingController.setViewportSize(view.width, view.height)
                         }
+
+                        // Activity가 이미 RESUMED 상태면 즉시 resume 호출
+                        // (DisposableEffect의 observer는 과거 이벤트를 받지 못하므로)
+                        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                            view.onResume()
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxSize()
