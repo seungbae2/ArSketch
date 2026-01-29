@@ -1,10 +1,19 @@
 package com.sb.arsketch.ar.util
 
 import com.google.ar.core.Frame
+import com.google.ar.core.Pose
 import com.google.ar.core.TrackingState
 import com.sb.arsketch.domain.model.Point3D
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/**
+ * Air 모드 프로젝션 결과
+ */
+data class AirProjectionResult(
+    val worldPoint: Point3D,
+    val pose: Pose  // Anchor 생성용
+)
 
 @Singleton
 class AirDrawingProjector @Inject constructor() {
@@ -13,12 +22,27 @@ class AirDrawingProjector @Inject constructor() {
         const val DEFAULT_DEPTH = 1.5f
     }
 
+    /**
+     * 화면 좌표를 월드 좌표로 프로젝션 (기존 호환용)
+     */
     fun projectToWorld(
         frame: Frame,
         screenX: Float,
         screenY: Float,
         depth: Float = DEFAULT_DEPTH
     ): Point3D? {
+        return projectToWorldWithPose(frame, screenX, screenY, depth)?.worldPoint
+    }
+
+    /**
+     * 화면 좌표를 월드 좌표와 Pose로 프로젝션
+     */
+    fun projectToWorldWithPose(
+        frame: Frame,
+        screenX: Float,
+        screenY: Float,
+        depth: Float = DEFAULT_DEPTH
+    ): AirProjectionResult? {
         val camera = frame.camera
 
         if (camera.trackingState != TrackingState.TRACKING) {
@@ -31,9 +55,7 @@ class AirDrawingProjector @Inject constructor() {
         val normalizedY = screenY - 0.5f
 
         val viewMatrix = FloatArray(16)
-        val projectionMatrix = FloatArray(16)
         camera.getViewMatrix(viewMatrix, 0)
-        camera.getProjectionMatrix(projectionMatrix, 0, 0.1f, 100f)
 
         val forward = floatArrayOf(
             -viewMatrix[2],
@@ -71,6 +93,14 @@ class AirDrawingProjector @Inject constructor() {
                 right[2] * horizontalOffset +
                 up[2] * verticalOffset
 
-        return Point3D(worldX, worldY, worldZ)
+        val worldPoint = Point3D(worldX, worldY, worldZ)
+
+        // Pose 생성 (카메라 방향 유지)
+        val pose = Pose(
+            floatArrayOf(worldX, worldY, worldZ),
+            cameraPose.rotationQuaternion
+        )
+
+        return AirProjectionResult(worldPoint, pose)
     }
 }

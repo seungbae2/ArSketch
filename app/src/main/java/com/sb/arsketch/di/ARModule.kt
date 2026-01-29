@@ -53,8 +53,9 @@ object ARModule {
     @Singleton
     fun provideDrawingController(
         touchToWorldConverter: TouchToWorldConverter,
-        anchorManager: AnchorManager
+        anchorManager: AnchorManager,
+        arSessionManager: ARSessionManager
     ): DrawingController {
-        return DrawingController(touchToWorldConverter, anchorManager)
+        return DrawingController(touchToWorldConverter, anchorManager, arSessionManager)
     }
 }

@@ -22,10 +22,11 @@ sealed class ConversionResult {
     ) : ConversionResult()
 
     /**
-     * Air 모드: 월드 좌표만
+     * Air 모드: 월드 좌표 + Anchor 생성용 Pose
      */
     data class AirPoint(
-        val worldPoint: Point3D
+        val worldPoint: Point3D,
+        val pose: Pose  // Anchor 생성용
     ) : ConversionResult()
 
     data object NoHit : ConversionResult()
@@ -102,14 +103,14 @@ class TouchToWorldConverter @Inject constructor(
         val normalizedX = screenX / viewportWidth
         val normalizedY = screenY / viewportHeight
 
-        val point = airDrawingProjector.projectToWorld(
+        val result = airDrawingProjector.projectToWorldWithPose(
             frame = frame,
             screenX = normalizedX,
             screenY = normalizedY
         )
 
-        return if (point != null) {
-            ConversionResult.AirPoint(point)
+        return if (result != null) {
+            ConversionResult.AirPoint(result.worldPoint, result.pose)
         } else {
             ConversionResult.NoHit
         }

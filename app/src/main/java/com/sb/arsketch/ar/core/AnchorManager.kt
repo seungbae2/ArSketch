@@ -3,6 +3,7 @@ package com.sb.arsketch.ar.core
 import com.google.ar.core.Anchor
 import com.google.ar.core.HitResult
 import com.google.ar.core.Pose
+import com.google.ar.core.Session
 import com.google.ar.core.TrackingState
 import timber.log.Timber
 import java.util.UUID
@@ -20,7 +21,7 @@ class AnchorManager @Inject constructor() {
     private val anchors = ConcurrentHashMap<String, Anchor>()
 
     /**
-     * HitResult로부터 Anchor 생성
+     * HitResult로부터 Anchor 생성 (Surface 모드)
      * @return 생성된 Anchor의 ID
      */
     fun createAnchor(hitResult: HitResult): String? {
@@ -28,10 +29,29 @@ class AnchorManager @Inject constructor() {
             val anchor = hitResult.createAnchor()
             val anchorId = UUID.randomUUID().toString()
             anchors[anchorId] = anchor
-            Timber.d("Anchor 생성: $anchorId")
+            Timber.d("Anchor 생성 (HitResult): $anchorId")
             anchorId
         } catch (e: Exception) {
             Timber.e(e, "Anchor 생성 실패")
+            null
+        }
+    }
+
+    /**
+     * Pose로부터 Anchor 생성 (Air 모드)
+     * @param session AR 세션
+     * @param pose Anchor를 생성할 위치의 Pose
+     * @return 생성된 Anchor의 ID
+     */
+    fun createAnchorFromPose(session: Session, pose: Pose): String? {
+        return try {
+            val anchor = session.createAnchor(pose)
+            val anchorId = UUID.randomUUID().toString()
+            anchors[anchorId] = anchor
+            Timber.d("Anchor 생성 (Pose): $anchorId at ${pose.tx()}, ${pose.ty()}, ${pose.tz()}")
+            anchorId
+        } catch (e: Exception) {
+            Timber.e(e, "Anchor 생성 실패 (Pose)")
             null
         }
     }

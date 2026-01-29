@@ -15,7 +15,7 @@ import javax.inject.Singleton
  */
 data class StrokeStartInfo(
     val localPoint: Point3D,  // Anchor 기준 로컬 좌표
-    val anchorId: String?     // Anchor ID (Surface 모드에서만)
+    val anchorId: String?     // Anchor ID (Surface/Air 모드 공통)
 )
 
 /**
@@ -25,7 +25,8 @@ data class StrokeStartInfo(
 @Singleton
 class DrawingController @Inject constructor(
     private val touchToWorldConverter: TouchToWorldConverter,
-    private val anchorManager: AnchorManager
+    private val anchorManager: AnchorManager,
+    private val arSessionManager: ARSessionManager
 ) {
     // 현재 AR 프레임 (렌더 루프에서 업데이트)
     @Volatile
@@ -116,13 +117,30 @@ class DrawingController @Inject constructor(
                 }
             }
             is ConversionResult.AirPoint -> {
-                // Air 모드: Anchor 없이 월드 좌표 사용 (현재 미지원)
-                currentAnchorId = null
-                currentAnchorPose = null
-                isDrawing = true
-                onStrokeStartWithAnchor?.invoke(StrokeStartInfo(result.worldPoint, null))
-                onStrokeStart?.invoke(result.worldPoint)
-                Timber.d("드로잉 시작 (Air): ${result.worldPoint}")
+                // Air 모드: Pose로부터 Anchor 생성
+                val session = arSessionManager.getSession()
+                if (session != null) {
+                    val anchorId = anchorManager.createAnchorFromPose(session, result.pose)
+                    if (anchorId != null) {
+                        val anchorPose = anchorManager.getAnchorPose(anchorId)
+                        if (anchorPose != null) {
+                            currentAnchorId = anchorId
+                            currentAnchorPose = anchorPose
+
+                            // 첫 번째 점은 Anchor 위치이므로 로컬 좌표는 원점
+                            val localPoint = Point3D.ZERO
+
+                            isDrawing = true
+                            onStrokeStartWithAnchor?.invoke(StrokeStartInfo(localPoint, anchorId))
+                            onStrokeStart?.invoke(localPoint)
+                            Timber.d("드로잉 시작 (Air): anchorId=$anchorId, localPoint=$localPoint")
+                        } else {
+                            anchorManager.releaseAnchor(anchorId)
+                        }
+                    }
+                } else {
+                    Timber.w("AR 세션이 없어 Air 모드 드로잉 불가")
+                }
             }
             is ConversionResult.NoHit -> {
                 Timber.v("드로잉 시작 실패: 히트 없음")
@@ -157,8 +175,12 @@ class DrawingController @Inject constructor(
                 }
             }
             is ConversionResult.AirPoint -> {
-                // Air 모드: 월드 좌표 그대로 사용
-                onStrokePoint?.invoke(result.worldPoint)
+                // Air 모드: Anchor 기준 로컬 좌표로 변환
+                val anchorPose = currentAnchorPose
+                if (anchorPose != null) {
+                    val localPoint = touchToWorldConverter.worldToLocal(result.worldPoint, anchorPose)
+                    onStrokePoint?.invoke(localPoint)
+                }
             }
             is ConversionResult.NoHit -> {
                 // 히트 없음 - 무시
