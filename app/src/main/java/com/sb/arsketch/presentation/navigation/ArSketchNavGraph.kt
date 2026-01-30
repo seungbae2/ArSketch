@@ -14,13 +14,16 @@ import com.sb.arsketch.ar.core.ARSessionManager
 import com.sb.arsketch.ar.core.DrawingController
 import com.sb.arsketch.presentation.screen.drawing.DrawingScreen
 import com.sb.arsketch.presentation.screen.drawing.DrawingViewModel
+import com.sb.arsketch.presentation.screen.home.HomeScreen
 import com.sb.arsketch.presentation.screen.sessions.SessionListScreen
 
 /**
  * 네비게이션 라우트 정의
  */
 object Routes {
+    const val HOME = "home"
     const val DRAWING = "drawing"
+    const val STREAMING = "streaming"
     const val DRAWING_WITH_SESSION = "drawing/{sessionId}"
     const val SESSION_LIST = "sessions"
 
@@ -36,20 +39,52 @@ fun ArSketchNavGraph(
     drawingController: DrawingController,
     anchorManager: AnchorManager,
     navController: NavHostController = rememberNavController(),
-    startDestination: String = Routes.DRAWING
+    startDestination: String = Routes.HOME
 ) {
     NavHost(
         navController = navController,
         startDestination = startDestination
     ) {
-        // 새 드로잉 화면
+        // 홈 화면 (모드 선택)
+        composable(Routes.HOME) {
+            HomeScreen(
+                onNavigateToDrawing = {
+                    navController.navigate(Routes.DRAWING)
+                },
+                onNavigateToStreaming = {
+                    navController.navigate(Routes.STREAMING)
+                }
+            )
+        }
+
+        // 일반 드로잉 화면
         composable(Routes.DRAWING) {
             DrawingScreen(
                 arSessionManager = arSessionManager,
                 drawingController = drawingController,
                 anchorManager = anchorManager,
+                isStreamingMode = false,
                 onNavigateToSessions = {
                     navController.navigate(Routes.SESSION_LIST)
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // 스트리밍 드로잉 화면
+        composable(Routes.STREAMING) {
+            DrawingScreen(
+                arSessionManager = arSessionManager,
+                drawingController = drawingController,
+                anchorManager = anchorManager,
+                isStreamingMode = true,
+                onNavigateToSessions = {
+                    navController.navigate(Routes.SESSION_LIST)
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }
@@ -74,8 +109,12 @@ fun ArSketchNavGraph(
                 arSessionManager = arSessionManager,
                 drawingController = drawingController,
                 anchorManager = anchorManager,
+                isStreamingMode = false,
                 onNavigateToSessions = {
                     navController.navigate(Routes.SESSION_LIST)
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }

@@ -6,8 +6,10 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +17,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,6 +57,7 @@ import com.sb.arsketch.presentation.component.PlaneVisibilityToggle
 import com.sb.arsketch.presentation.component.SaveSessionDialog
 import com.sb.arsketch.presentation.component.TrackingStatusIndicator
 import com.sb.arsketch.presentation.state.ARState
+import com.sb.arsketch.streaming.StreamingControls
 import timber.log.Timber
 
 /**
@@ -60,7 +69,9 @@ fun DrawingScreen(
     arSessionManager: ARSessionManager,
     drawingController: DrawingController,
     anchorManager: AnchorManager,
-    onNavigateToSessions: () -> Unit
+    isStreamingMode: Boolean = false,
+    onNavigateToSessions: () -> Unit,
+    onNavigateBack: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
@@ -212,12 +223,44 @@ fun DrawingScreen(
             )
         }
 
+        // 상단 뒤로가기 버튼
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .statusBarsPadding()
+                .padding(start = 8.dp, top = 8.dp)
+        ) {
+            IconButton(
+                onClick = onNavigateBack,
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "뒤로가기"
+                )
+            }
+        }
+
+        // 스트리밍 컨트롤 (스트리밍 모드일 때만)
+        if (isStreamingMode) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(end = 8.dp, top = 8.dp)
+            ) {
+                StreamingControls()
+            }
+        }
+
         // 상단 상태 표시 및 모드 토글
         Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .statusBarsPadding()
-                .padding(top = 16.dp),
+                .padding(top = 56.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             TrackingStatusIndicator(arState = uiState.arState)

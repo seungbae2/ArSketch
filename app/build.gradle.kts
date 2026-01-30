@@ -94,4 +94,7 @@ dependencies {
 
     // Serialization
     implementation(libs.kotlinx.serialization.json)
+
+    // LiveKit
+    implementation(libs.livekit.android)
 }
