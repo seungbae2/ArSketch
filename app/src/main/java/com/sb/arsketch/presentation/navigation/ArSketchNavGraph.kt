@@ -1,8 +1,6 @@
 package com.sb.arsketch.presentation.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -12,8 +10,7 @@ import androidx.navigation.navArgument
 import com.sb.arsketch.ar.core.AnchorManager
 import com.sb.arsketch.ar.core.ARSessionManager
 import com.sb.arsketch.ar.core.DrawingController
-import com.sb.arsketch.presentation.screen.drawing.DrawingScreen
-import com.sb.arsketch.presentation.screen.drawing.DrawingViewModel
+import com.sb.arsketch.presentation.screen.drawing.DrawingRoute
 import com.sb.arsketch.presentation.screen.home.HomeScreen
 import com.sb.arsketch.presentation.screen.sessions.SessionListScreen
 
@@ -59,11 +56,12 @@ fun ArSketchNavGraph(
 
         // 일반 드로잉 화면
         composable(Routes.DRAWING) {
-            DrawingScreen(
+            DrawingRoute(
                 arSessionManager = arSessionManager,
                 drawingController = drawingController,
                 anchorManager = anchorManager,
                 isStreamingMode = false,
+                sessionIdToLoad = null,
                 onNavigateToSessions = {
                     navController.navigate(Routes.SESSION_LIST)
                 },
@@ -75,11 +73,12 @@ fun ArSketchNavGraph(
 
         // 스트리밍 드로잉 화면
         composable(Routes.STREAMING) {
-            DrawingScreen(
+            DrawingRoute(
                 arSessionManager = arSessionManager,
                 drawingController = drawingController,
                 anchorManager = anchorManager,
                 isStreamingMode = true,
+                sessionIdToLoad = null,
                 onNavigateToSessions = {
                     navController.navigate(Routes.SESSION_LIST)
                 },
@@ -97,19 +96,13 @@ fun ArSketchNavGraph(
             )
         ) { backStackEntry ->
             val sessionId = backStackEntry.arguments?.getString("sessionId")
-            val viewModel: DrawingViewModel = hiltViewModel()
 
-            // 세션 ID로 불러오기
-            LaunchedEffect(sessionId) {
-                sessionId?.let { viewModel.loadSession(it) }
-            }
-
-            DrawingScreen(
-                viewModel = viewModel,
+            DrawingRoute(
                 arSessionManager = arSessionManager,
                 drawingController = drawingController,
                 anchorManager = anchorManager,
                 isStreamingMode = false,
+                sessionIdToLoad = sessionId,
                 onNavigateToSessions = {
                     navController.navigate(Routes.SESSION_LIST)
                 },

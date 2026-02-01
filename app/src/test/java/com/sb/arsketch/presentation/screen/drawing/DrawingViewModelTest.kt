@@ -67,7 +67,7 @@ class DrawingViewModelTest {
         val startPoint = Point3D(1f, 0f, 0f)
 
         // When
-        viewModel.onTouchStart(startPoint)
+        viewModel.onAction(DrawingAction.TouchStart(startPoint))
 
         // Then
         val state = viewModel.uiState.value
@@ -82,10 +82,10 @@ class DrawingViewModelTest {
         val startPoint = Point3D(0f, 0f, 0f)
         val movePoint = Point3D(0.1f, 0f, 0f)  // 10cm
 
-        viewModel.onTouchStart(startPoint)
+        viewModel.onAction(DrawingAction.TouchStart(startPoint))
 
         // When
-        viewModel.onTouchMove(movePoint)
+        viewModel.onAction(DrawingAction.TouchMove(movePoint))
 
         // Then
         val state = viewModel.uiState.value
@@ -98,11 +98,11 @@ class DrawingViewModelTest {
         val startPoint = Point3D(0f, 0f, 0f)
         val endPoint = Point3D(0.1f, 0f, 0f)
 
-        viewModel.onTouchStart(startPoint)
-        viewModel.onTouchMove(endPoint)
+        viewModel.onAction(DrawingAction.TouchStart(startPoint))
+        viewModel.onAction(DrawingAction.TouchMove(endPoint))
 
         // When
-        viewModel.onTouchEnd()
+        viewModel.onAction(DrawingAction.TouchEnd)
 
         // Then
         val state = viewModel.uiState.value
@@ -114,12 +114,12 @@ class DrawingViewModelTest {
     @Test
     fun `Undo 시 canUndo와 canRedo 상태 업데이트`() = runTest {
         // Given - 스트로크 하나 생성
-        viewModel.onTouchStart(Point3D(0f, 0f, 0f))
-        viewModel.onTouchMove(Point3D(0.1f, 0f, 0f))
-        viewModel.onTouchEnd()
+        viewModel.onAction(DrawingAction.TouchStart(Point3D(0f, 0f, 0f)))
+        viewModel.onAction(DrawingAction.TouchMove(Point3D(0.1f, 0f, 0f)))
+        viewModel.onAction(DrawingAction.TouchEnd)
 
         // When
-        viewModel.undo()
+        viewModel.onAction(DrawingAction.Undo)
 
         // Then
         val state = viewModel.uiState.value
@@ -134,7 +134,7 @@ class DrawingViewModelTest {
         val newColor = 0xFFFF0000.toInt()
 
         // When
-        viewModel.setColor(newColor)
+        viewModel.onAction(DrawingAction.SetColor(newColor))
 
         // Then
         assertEquals(newColor, viewModel.uiState.value.brushSettings.color)
@@ -144,13 +144,13 @@ class DrawingViewModelTest {
     fun `clearAll 시 모든 스트로크 삭제`() = runTest {
         // Given
         repeat(3) { i ->
-            viewModel.onTouchStart(Point3D(i.toFloat(), 0f, 0f))
-            viewModel.onTouchMove(Point3D(i.toFloat() + 0.1f, 0f, 0f))
-            viewModel.onTouchEnd()
+            viewModel.onAction(DrawingAction.TouchStart(Point3D(i.toFloat(), 0f, 0f)))
+            viewModel.onAction(DrawingAction.TouchMove(Point3D(i.toFloat() + 0.1f, 0f, 0f)))
+            viewModel.onAction(DrawingAction.TouchEnd)
         }
 
         // When
-        viewModel.clearAll()
+        viewModel.onAction(DrawingAction.ClearAll)
 
         // Then
         val state = viewModel.uiState.value
