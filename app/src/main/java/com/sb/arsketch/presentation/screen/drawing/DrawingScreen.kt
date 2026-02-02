@@ -35,7 +35,7 @@ import com.sb.arsketch.presentation.component.PlaneVisibilityToggle
 import com.sb.arsketch.presentation.component.SaveSessionDialog
 import com.sb.arsketch.presentation.component.TrackingStatusIndicator
 import com.sb.arsketch.presentation.state.DrawingUiState
-import com.sb.arsketch.streaming.StreamingControls
+import com.sb.arsketch.streaming.ARStreamingControls
 
 /**
  * Stateless 드로잉 화면
@@ -92,7 +92,20 @@ fun DrawingScreen(
                     .statusBarsPadding()
                     .padding(end = 8.dp, top = 8.dp)
             ) {
-                StreamingControls()
+                ARStreamingControls(
+                    streamingState = uiState.streamingState,
+                    onStartStreaming = {
+                        onAction(
+                            DrawingAction.StartStreaming(
+                                url = LIVEKIT_URL,
+                                token = LIVEKIT_TOKEN
+                            )
+                        )
+                    },
+                    onStopStreaming = {
+                        onAction(DrawingAction.StopStreaming)
+                    }
+                )
             }
         }
 
@@ -180,3 +193,7 @@ fun DrawingScreen(
         }
     }
 }
+
+// LiveKit 자격 증명 (임시 - 나중에 설정에서 관리)
+private const val LIVEKIT_URL = "wss://ardrawing-xabqpgun.livekit.cloud"
+private const val LIVEKIT_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzAyNzU2MjYsImlkZW50aXR5IjoiYW5kcm9pZC11c2VyIiwiaXNzIjoiQVBJb3dMNkNRdjM4M21BIiwibmFtZSI6ImFuZHJvaWQtdXNlciIsIm5iZiI6MTc2OTY3MDgyNiwic3ViIjoiYW5kcm9pZC11c2VyIiwidmlkZW8iOnsicm9vbSI6ImFyLWRyYXdpbmciLCJyb29tSm9pbiI6dHJ1ZX19.7C0kTuLq12iFkX88BtqDSkn2hzfweHikXCWFOUatH-g"
