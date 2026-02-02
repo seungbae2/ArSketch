@@ -113,17 +113,20 @@ class ARStreamingService : Service() {
 
                 // 2. BitmapFrameCapturer 생성
                 capturer = BitmapFrameCapturer()
-                capturer?.startCapture(width, height, fps)
 
-                Timber.d("BitmapFrameCapturer started: ${width}x${height} @ ${fps}fps")
-
-                // 3. VideoTrack 생성 및 발행
+                // 3. VideoTrack 생성 (capturer 초기화됨)
                 videoTrack = room?.localParticipant?.createVideoTrack(
                     name = "ar_composited",
                     capturer = capturer!!,
                     options = LocalVideoTrackOptions()
                 )
 
+                // 4. capturer 시작 (createVideoTrack 후에 호출해야 함)
+                capturer?.startCapture(width, height, fps)
+
+                Timber.d("BitmapFrameCapturer started: ${width}x${height} @ ${fps}fps")
+
+                // 5. VideoTrack 발행
                 room?.localParticipant?.publishVideoTrack(videoTrack!!)
 
                 Timber.d("VideoTrack published: ${videoTrack?.name}")
