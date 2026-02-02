@@ -142,6 +142,12 @@ fun DrawingRoute(
         glSurfaceView?.getARRenderer()?.showPlanes = uiState.showPlanes
     }
 
+    // 스트리밍 상태 동기화
+    LaunchedEffect(uiState.streamingState) {
+        val isStreaming = uiState.streamingState is com.sb.arsketch.presentation.state.StreamingUiState.Streaming
+        glSurfaceView?.getARRenderer()?.setStreamingEnabled(isStreaming)
+    }
+
     // 이벤트 수집
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -211,6 +217,11 @@ fun DrawingRoute(
                     drawingController.updateFrame(frame)
                     val (strokes, currentStroke) = viewModel.getStrokesForRendering()
                     view.getARRenderer().updateStrokes(strokes, currentStroke)
+                }
+
+                // 스트리밍 프레임 콜백 설정
+                view.getARRenderer().onFrameComposited = { bitmap ->
+                    viewModel.onFrameComposited(bitmap)
                 }
 
                 // 뷰포트 크기 설정
