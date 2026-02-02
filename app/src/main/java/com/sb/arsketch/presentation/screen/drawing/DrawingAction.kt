@@ -47,8 +47,8 @@ sealed interface DrawingAction {
     data class StartStreaming(
         val url: String,
         val token: String,
-        val width: Int = 1280,
-        val height: Int = 720
+        val width: Int = 1920,
+        val height: Int = 1080
     ) : DrawingAction
     data object StopStreaming : DrawingAction
 }

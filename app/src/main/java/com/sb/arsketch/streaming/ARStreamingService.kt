@@ -88,8 +88,8 @@ class ARStreamingService : Service() {
     fun connect(
         url: String,
         token: String,
-        width: Int = 1280,
-        height: Int = 720,
+        width: Int = 1920,
+        height: Int = 1080,
         fps: Int = 30,
         onSuccess: () -> Unit,
         onError: (Exception) -> Unit

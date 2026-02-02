@@ -10,6 +10,8 @@ import com.google.ar.core.TrackingState
 import com.sb.arsketch.ar.core.AnchorManager
 import com.sb.arsketch.ar.core.ARSessionManager
 import com.sb.arsketch.domain.model.Stroke
+import com.sb.arsketch.streaming.AdaptiveQualityController
+import com.sb.arsketch.streaming.Resolution
 import timber.log.Timber
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
@@ -27,17 +29,32 @@ class ARRenderer(
     // FBO 오프스크린 렌더링
     private var compositeFbo: CompositeFramebuffer? = null
 
+    // PBO 비동기 픽셀 읽기
+    private var asyncPixelReader: AsyncPixelReader? = null
+
+    // 적응형 품질 컨트롤러
+    private val qualityController = AdaptiveQualityController(
+        targetFps = 30,
+        initialResolution = Resolution.FHD_1080  // 1080p로 시작
+    )
+
     // 스트리밍 활성화 여부
     @Volatile
     var isStreamingEnabled: Boolean = false
         private set
 
-    // FBO 해상도 (720p 기본)
-    private var fboWidth = 1280
-    private var fboHeight = 720
+    // PBO 사용 여부 (성능 최적화)
+    private var usePboAsync = true
+
+    // FBO 해상도 (1080p 기본)
+    private var fboWidth = 1920
+    private var fboHeight = 1080
 
     // 스트리밍 프레임 콜백
     var onFrameComposited: ((Bitmap) -> Unit)? = null
+
+    // 해상도 변경 콜백
+    var onResolutionChanged: ((Resolution) -> Unit)? = null
 
     // 평면 시각화 활성화 여부
     @Volatile
@@ -92,7 +109,25 @@ class ARRenderer(
         compositeFbo = CompositeFramebuffer(fboWidth, fboHeight).apply {
             initialize()
         }
-        Timber.d("CompositeFramebuffer initialized: ${fboWidth}x${fboHeight}")
+
+        // PBO 비동기 읽기 초기화
+        if (usePboAsync) {
+            asyncPixelReader?.destroy()
+            asyncPixelReader = AsyncPixelReader(fboWidth, fboHeight).apply {
+                initialize()
+            }
+        }
+
+        // 적응형 품질 컨트롤러 콜백 설정
+        qualityController.onResolutionChanged = { resolution ->
+            Timber.i("해상도 변경 요청: $resolution")
+            fboWidth = resolution.width
+            fboHeight = resolution.height
+            // GL 컨텍스트에서 재초기화 필요 (다음 프레임에서 처리)
+            onResolutionChanged?.invoke(resolution)
+        }
+
+        Timber.d("CompositeFramebuffer initialized: ${fboWidth}x${fboHeight}, PBO: $usePboAsync")
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
@@ -186,10 +221,24 @@ class ARRenderer(
         // FBO에 씬 렌더링
         renderScene(frame, fboWidth, fboHeight, fboProjectionMatrix)
 
-        // Bitmap으로 읽어서 콜백
-        fbo.readToBitmap()?.let { bitmap ->
-            onFrameComposited?.invoke(bitmap)
+        // Bitmap 추출 (PBO 또는 동기 방식)
+        val bitmap = if (usePboAsync) {
+            asyncPixelReader?.let { reader ->
+                // 비동기 읽기 시작 (현재 프레임)
+                reader.readPixelsAsync()
+                // 이전 프레임 결과 가져오기 (1프레임 지연)
+                reader.getLastFrameBitmap()
+            }
+        } else {
+            // 동기 방식 폴백
+            fbo.readToBitmap()
         }
+
+        // 콜백으로 전달
+        bitmap?.let { onFrameComposited?.invoke(it) }
+
+        // 품질 컨트롤러에 프레임 완료 알림
+        qualityController.onFrameRendered()
 
         // 원래 화면으로 복원
         fbo.unbind(viewportWidth, viewportHeight)
@@ -210,18 +259,37 @@ class ARRenderer(
      * 스트리밍 활성화/비활성화
      *
      * @param enabled 스트리밍 활성화 여부
-     * @param width FBO 너비 (선택사항, 기본 1280)
-     * @param height FBO 높이 (선택사항, 기본 720)
+     * @param resolution 해상도 (기본 1080p)
      */
-    fun setStreamingEnabled(enabled: Boolean, width: Int = 1280, height: Int = 720) {
-        if (enabled && (width != fboWidth || height != fboHeight)) {
-            fboWidth = width
-            fboHeight = height
-            // 해상도 변경 시 FBO 재생성
-            initializeCompositeFbo()
+    fun setStreamingEnabled(enabled: Boolean, resolution: Resolution = Resolution.FHD_1080) {
+        if (enabled) {
+            if (resolution.width != fboWidth || resolution.height != fboHeight) {
+                fboWidth = resolution.width
+                fboHeight = resolution.height
+                // 해상도 변경 시 FBO 재생성
+                initializeCompositeFbo()
+            }
+            qualityController.forceResolution(resolution)
+            qualityController.reset()
         }
         isStreamingEnabled = enabled
         Timber.d("Streaming ${if (enabled) "enabled" else "disabled"}: ${fboWidth}x${fboHeight}")
+    }
+
+    /**
+     * 스트리밍 활성화/비활성화 (width/height 직접 지정)
+     *
+     * @param enabled 스트리밍 활성화 여부
+     * @param width FBO 너비
+     * @param height FBO 높이
+     */
+    fun setStreamingEnabled(enabled: Boolean, width: Int, height: Int) {
+        val resolution = when {
+            width >= 1920 -> Resolution.FHD_1080
+            width >= 1280 -> Resolution.HD_720
+            else -> Resolution.SD_480
+        }
+        setStreamingEnabled(enabled, resolution)
     }
 
     /**
@@ -229,10 +297,36 @@ class ARRenderer(
      */
     fun getStreamingResolution(): Pair<Int, Int> = fboWidth to fboHeight
 
+    /**
+     * 현재 스트리밍 해상도 (Resolution enum)
+     */
+    fun getCurrentResolution(): Resolution = qualityController.currentResolution
+
+    /**
+     * 측정된 FPS 반환
+     */
+    fun getMeasuredFps(): Float = qualityController.getMeasuredFps()
+
+    /**
+     * PBO 사용 여부 설정
+     */
+    fun setUsePboAsync(use: Boolean) {
+        if (usePboAsync != use) {
+            usePboAsync = use
+            if (isStreamingEnabled) {
+                initializeCompositeFbo()
+            }
+            Timber.d("PBO async mode: $usePboAsync")
+        }
+    }
+
     fun release() {
         isTextureSet = false
         isStreamingEnabled = false
         lastFrame = null
+
+        asyncPixelReader?.destroy()
+        asyncPixelReader = null
 
         compositeFbo?.destroy()
         compositeFbo = null
