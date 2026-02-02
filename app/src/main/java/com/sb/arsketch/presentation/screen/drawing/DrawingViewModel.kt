@@ -1,5 +1,11 @@
 package com.sb.arsketch.presentation.screen.drawing
 
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
+import android.graphics.Bitmap
+import android.os.IBinder
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sb.arsketch.domain.model.BrushSettings
@@ -16,7 +22,11 @@ import com.sb.arsketch.domain.usecase.stroke.RedoStrokeUseCase
 import com.sb.arsketch.domain.usecase.stroke.UndoStrokeUseCase
 import com.sb.arsketch.presentation.state.ARState
 import com.sb.arsketch.presentation.state.DrawingUiState
+import com.sb.arsketch.presentation.state.StreamingUiState
+import com.sb.arsketch.streaming.ARStreamingService
+import com.sb.arsketch.streaming.StreamingState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,6 +40,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class DrawingViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val createStrokeUseCase: CreateStrokeUseCase,
     private val addPointToStrokeUseCase: AddPointToStrokeUseCase,
     private val undoStrokeUseCase: UndoStrokeUseCase,
@@ -47,6 +58,62 @@ class DrawingViewModel @Inject constructor(
     val events = _events.receiveAsFlow()
 
     private var currentSessionId: String = UUID.randomUUID().toString()
+
+    // AR 스트리밍
+    private var streamingService: ARStreamingService? = null
+    private var isServiceBound = false
+    private var pendingStreamingConfig: StreamingConfig? = null
+
+    private data class StreamingConfig(
+        val url: String,
+        val token: String,
+        val width: Int,
+        val height: Int
+    )
+
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            val binder = service as ARStreamingService.LocalBinder
+            streamingService = binder.getService()
+            isServiceBound = true
+            Timber.d("ARStreamingService connected")
+
+            // 대기 중인 스트리밍 시작
+            pendingStreamingConfig?.let { config ->
+                startStreamingWithService(config)
+                pendingStreamingConfig = null
+            }
+
+            // 서비스 상태 관찰
+            observeStreamingState()
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            streamingService = null
+            isServiceBound = false
+            Timber.d("ARStreamingService disconnected")
+
+            _uiState.update { it.copy(streamingState = StreamingUiState.Idle) }
+        }
+    }
+
+    private fun observeStreamingState() {
+        viewModelScope.launch {
+            streamingService?.streamingState?.collect { state ->
+                val uiState = when (state) {
+                    is StreamingState.Idle -> StreamingUiState.Idle
+                    is StreamingState.Connecting -> StreamingUiState.Connecting
+                    is StreamingState.Streaming -> StreamingUiState.Streaming(
+                        roomName = state.roomName,
+                        resolution = state.resolution,
+                        fps = streamingService?.getCurrentFps() ?: 0f
+                    )
+                    is StreamingState.Error -> StreamingUiState.Error(state.message)
+                }
+                _uiState.update { it.copy(streamingState = uiState) }
+            }
+        }
+    }
 
     /**
      * 모든 사용자 액션의 단일 진입점
@@ -85,6 +152,15 @@ class DrawingViewModel @Inject constructor(
 
             // 에러 처리
             is DrawingAction.ClearError -> clearError()
+
+            // AR 스트리밍
+            is DrawingAction.StartStreaming -> startStreaming(
+                action.url,
+                action.token,
+                action.width,
+                action.height
+            )
+            is DrawingAction.StopStreaming -> stopStreaming()
         }
     }
 
@@ -300,5 +376,88 @@ class DrawingViewModel @Inject constructor(
     fun getStrokesForRendering(): Pair<List<Stroke>, Stroke?> {
         val state = _uiState.value
         return state.strokes to state.currentStroke
+    }
+
+    // ========== AR 스트리밍 ==========
+
+    private fun startStreaming(url: String, token: String, width: Int, height: Int) {
+        if (_uiState.value.streamingState !is StreamingUiState.Idle) {
+            Timber.w("Already streaming or connecting")
+            return
+        }
+
+        _uiState.update { it.copy(streamingState = StreamingUiState.Connecting) }
+
+        val config = StreamingConfig(url, token, width, height)
+
+        if (isServiceBound && streamingService != null) {
+            startStreamingWithService(config)
+        } else {
+            // 서비스 시작 및 바인딩
+            pendingStreamingConfig = config
+            val serviceIntent = Intent(context, ARStreamingService::class.java)
+            context.startForegroundService(serviceIntent)
+            context.bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
+        }
+    }
+
+    private fun startStreamingWithService(config: StreamingConfig) {
+        streamingService?.connect(
+            url = config.url,
+            token = config.token,
+            width = config.width,
+            height = config.height,
+            fps = 30,
+            onSuccess = {
+                Timber.d("Streaming started successfully")
+                _events.trySend(DrawingEvent.StreamingStarted)
+            },
+            onError = { e ->
+                Timber.e(e, "Streaming failed")
+                _uiState.update {
+                    it.copy(streamingState = StreamingUiState.Error(e.message ?: "Connection failed"))
+                }
+                _events.trySend(DrawingEvent.Error("스트리밍 시작 실패: ${e.message}"))
+            }
+        )
+    }
+
+    private fun stopStreaming() {
+        streamingService?.disconnect()
+
+        if (isServiceBound) {
+            try {
+                context.unbindService(serviceConnection)
+            } catch (e: Exception) {
+                Timber.e(e, "Error unbinding service")
+            }
+            isServiceBound = false
+        }
+
+        streamingService = null
+        _uiState.update { it.copy(streamingState = StreamingUiState.Idle) }
+        _events.trySend(DrawingEvent.StreamingStopped)
+    }
+
+    /**
+     * ARRenderer에서 호출되는 프레임 콜백.
+     * GLThread에서 호출됩니다.
+     *
+     * @param bitmap 합성된 AR 프레임
+     */
+    fun onFrameComposited(bitmap: Bitmap) {
+        if (_uiState.value.streamingState is StreamingUiState.Streaming) {
+            streamingService?.pushFrame(bitmap)
+        }
+    }
+
+    /**
+     * 스트리밍 활성화 여부
+     */
+    fun isStreaming(): Boolean = _uiState.value.streamingState is StreamingUiState.Streaming
+
+    override fun onCleared() {
+        super.onCleared()
+        stopStreaming()
     }
 }

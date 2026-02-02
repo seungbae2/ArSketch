@@ -17,8 +17,32 @@ data class DrawingUiState(
     val canRedo: Boolean = false,
     val showSaveDialog: Boolean = false,
     val sessionName: String = "",
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+
+    // AR 스트리밍 상태
+    val streamingState: StreamingUiState = StreamingUiState.Idle
 )
+
+/**
+ * 스트리밍 UI 상태
+ */
+sealed class StreamingUiState {
+    /** 대기 상태 */
+    data object Idle : StreamingUiState()
+
+    /** 연결 중 */
+    data object Connecting : StreamingUiState()
+
+    /** 스트리밍 중 */
+    data class Streaming(
+        val roomName: String = "",
+        val resolution: String = "",
+        val fps: Float = 0f
+    ) : StreamingUiState()
+
+    /** 오류 발생 */
+    data class Error(val message: String) : StreamingUiState()
+}
 
 sealed class ARState {
     object Initializing : ARState()

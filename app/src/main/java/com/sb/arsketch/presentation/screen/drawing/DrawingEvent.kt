@@ -16,4 +16,10 @@ sealed interface DrawingEvent {
 
     // 에러 발생
     data class Error(val message: String) : DrawingEvent
+
+    // 스트리밍 시작
+    data object StreamingStarted : DrawingEvent
+
+    // 스트리밍 중지
+    data object StreamingStopped : DrawingEvent
 }

@@ -156,6 +156,10 @@ fun DrawingRoute(
                     )
                 is DrawingEvent.Error ->
                     snackbarHostState.showSnackbar(event.message)
+                is DrawingEvent.StreamingStarted ->
+                    snackbarHostState.showSnackbar("스트리밍 시작됨")
+                is DrawingEvent.StreamingStopped ->
+                    snackbarHostState.showSnackbar("스트리밍 중지됨")
             }
         }
     }

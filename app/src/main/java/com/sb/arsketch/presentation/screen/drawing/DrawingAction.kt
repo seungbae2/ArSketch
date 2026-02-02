@@ -42,4 +42,13 @@ sealed interface DrawingAction {
 
     // 에러 처리
     data object ClearError : DrawingAction
+
+    // AR 스트리밍
+    data class StartStreaming(
+        val url: String,
+        val token: String,
+        val width: Int = 1280,
+        val height: Int = 720
+    ) : DrawingAction
+    data object StopStreaming : DrawingAction
 }
