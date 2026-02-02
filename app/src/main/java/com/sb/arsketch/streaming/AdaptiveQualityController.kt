@@ -137,6 +137,7 @@ class AdaptiveQualityController(
 
 /**
  * 스트리밍 해상도 프리셋.
+ * 가로/세로 모드 모두 지원합니다.
  */
 enum class Resolution(val width: Int, val height: Int) {
     /** 480p - 저사양 기기용 */
@@ -153,6 +154,18 @@ enum class Resolution(val width: Int, val height: Int) {
 
     /** 한 단계 높은 해상도 */
     fun higher(): Resolution = entries.getOrElse(ordinal + 1) { this }
+
+    /** 세로 모드용 너비 */
+    val portraitWidth: Int get() = height
+
+    /** 세로 모드용 높이 */
+    val portraitHeight: Int get() = width
+
+    /** 세로 모드 해상도 반환 */
+    fun toPortrait(): Pair<Int, Int> = portraitWidth to portraitHeight
+
+    /** 가로 모드 해상도 반환 */
+    fun toLandscape(): Pair<Int, Int> = width to height
 
     override fun toString(): String = "${width}x${height}"
 }

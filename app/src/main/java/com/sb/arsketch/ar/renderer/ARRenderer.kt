@@ -46,9 +46,10 @@ class ARRenderer(
     // PBO 사용 여부 (성능 최적화)
     private var usePboAsync = true
 
-    // FBO 해상도 (1080p 기본)
-    private var fboWidth = 1920
-    private var fboHeight = 1080
+    // FBO 해상도 (기기 방향에 따라 조정)
+    private var fboWidth = 1080
+    private var fboHeight = 1920  // 기본값: 세로 모드
+    private var isPortraitMode = true
 
     // 스트리밍 프레임 콜백
     var onFrameComposited: ((Bitmap) -> Unit)? = null
@@ -120,9 +121,15 @@ class ARRenderer(
 
         // 적응형 품질 컨트롤러 콜백 설정
         qualityController.onResolutionChanged = { resolution ->
-            Timber.i("해상도 변경 요청: $resolution")
-            fboWidth = resolution.width
-            fboHeight = resolution.height
+            // 현재 화면 방향에 맞춰 해상도 설정
+            val (newWidth, newHeight) = if (isPortraitMode) {
+                resolution.toPortrait()
+            } else {
+                resolution.toLandscape()
+            }
+            Timber.i("해상도 변경 요청: ${newWidth}x${newHeight} (${if (isPortraitMode) "portrait" else "landscape"})")
+            fboWidth = newWidth
+            fboHeight = newHeight
             // GL 컨텍스트에서 재초기화 필요 (다음 프레임에서 처리)
             onResolutionChanged?.invoke(resolution)
         }
@@ -137,7 +144,37 @@ class ARRenderer(
         viewportHeight = height
         GLES30.glViewport(0, 0, width, height)
 
+        // 화면 방향 감지 및 FBO 해상도 조정
+        val newPortraitMode = height > width
+        if (newPortraitMode != isPortraitMode) {
+            isPortraitMode = newPortraitMode
+            updateFboResolutionForOrientation()
+        }
+
         arSessionManager.setDisplayGeometry(0, width, height)
+    }
+
+    /**
+     * 화면 방향에 맞춰 FBO 해상도 업데이트
+     */
+    private fun updateFboResolutionForOrientation() {
+        val resolution = qualityController.currentResolution
+        val (newWidth, newHeight) = if (isPortraitMode) {
+            resolution.toPortrait()
+        } else {
+            resolution.toLandscape()
+        }
+
+        if (newWidth != fboWidth || newHeight != fboHeight) {
+            fboWidth = newWidth
+            fboHeight = newHeight
+            Timber.d("FBO 해상도 변경 (${if (isPortraitMode) "세로" else "가로"}): ${fboWidth}x${fboHeight}")
+
+            // 스트리밍 중이면 FBO 재초기화
+            if (isStreamingEnabled) {
+                initializeCompositeFbo()
+            }
+        }
     }
 
     override fun onDrawFrame(gl: GL10?) {
@@ -263,9 +300,16 @@ class ARRenderer(
      */
     fun setStreamingEnabled(enabled: Boolean, resolution: Resolution = Resolution.FHD_1080) {
         if (enabled) {
-            if (resolution.width != fboWidth || resolution.height != fboHeight) {
-                fboWidth = resolution.width
-                fboHeight = resolution.height
+            // 현재 화면 방향에 맞춰 해상도 설정
+            val (newWidth, newHeight) = if (isPortraitMode) {
+                resolution.toPortrait()
+            } else {
+                resolution.toLandscape()
+            }
+
+            if (newWidth != fboWidth || newHeight != fboHeight) {
+                fboWidth = newWidth
+                fboHeight = newHeight
                 // 해상도 변경 시 FBO 재생성
                 initializeCompositeFbo()
             }
@@ -273,7 +317,7 @@ class ARRenderer(
             qualityController.reset()
         }
         isStreamingEnabled = enabled
-        Timber.d("Streaming ${if (enabled) "enabled" else "disabled"}: ${fboWidth}x${fboHeight}")
+        Timber.d("Streaming ${if (enabled) "enabled" else "disabled"}: ${fboWidth}x${fboHeight} (${if (isPortraitMode) "portrait" else "landscape"})")
     }
 
     /**
