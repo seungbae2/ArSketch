@@ -46,7 +46,7 @@ fun DepthSlider(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = String.format("%.1fm", depth),
+                text = String.format(java.util.Locale.US, "%.1fm", depth),
                 color = Color.White.copy(alpha = 0.7f),
                 style = MaterialTheme.typography.bodySmall
             )

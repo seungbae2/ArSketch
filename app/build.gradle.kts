@@ -13,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "com.sb.arsketch"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -67,7 +67,6 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
-    androidTestImplementation(libs.room.testing)
     androidTestImplementation(libs.mockk.android)
     androidTestImplementation(libs.kotlinx.coroutines.test)
     debugImplementation(libs.androidx.compose.ui.tooling)
@@ -75,11 +74,6 @@ dependencies {
 
     // ARCore
     implementation(libs.arcore)
-
-    // Room
-    implementation(libs.room.runtime)
-    implementation(libs.room.ktx)
-    ksp(libs.room.compiler)
 
     // Hilt
     implementation(libs.hilt.android)
@@ -97,4 +91,5 @@ dependencies {
 
     // LiveKit
     implementation(libs.livekit.android)
+    implementation(libs.livekit.components.compose)
 }

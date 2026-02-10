@@ -3,22 +3,22 @@ agp = "8.13.2"
 kotlin = "2.2.0"
 coreKtx = "1.17.0"
 junit = "4.13.2"
-junitVersion = "1.2.1"
-espressoCore = "3.6.1"
-lifecycleRuntimeKtx = "2.9.0"
-activityCompose = "1.10.1"
-composeBom = "2026.01.00"
-arcore = "1.47.0"
-room = "2.7.1"
+junitVersion = "1.3.0"
+espressoCore = "3.7.0"
+lifecycleRuntimeKtx = "2.10.0"
+activityCompose = "1.12.3"
+composeBom = "2026.01.01"
+arcore = "1.52.0"
+livekitComponents = "2.1.2"
 hilt = "2.56"
-hiltNavigationCompose = "1.2.0"
-navigationCompose = "2.9.4"
+hiltNavigationCompose = "1.3.0"
+navigationCompose = "2.9.7"
 timber = "5.0.1"
-kotlinxSerialization = "1.8.0"
+kotlinxSerialization = "1.10.0"
 ksp = "2.2.0-2.0.2"
-mockk = "1.14.0"
-turbine = "1.2.0"
-coroutinesTest = "1.10.1"
+mockk = "1.14.9"
+turbine = "1.2.1"
+coroutinesTest = "1.10.2"
 archCoreTesting = "2.2.0"
 livekit = "2.23.3"
 
@@ -42,10 +42,8 @@ androidx-compose-material-icons-extended = { group = "androidx.compose.material"
 # ARCore
 arcore = { module = "com.google.ar:core", version.ref = "arcore" }
 
-# Room
-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+# LiveKit Components
+livekit-components-compose = { group = "io.livekit", name = "livekit-android-compose-components", version.ref = "livekitComponents" }
 
 # Hilt
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
@@ -70,7 +68,6 @@ mockk-android = { module = "io.mockk:mockk-android", version.ref = "mockk" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 arch-core-testing = { module = "androidx.arch.core:core-testing", version.ref = "archCoreTesting" }
-room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

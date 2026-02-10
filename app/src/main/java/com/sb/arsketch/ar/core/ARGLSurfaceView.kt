@@ -11,6 +11,7 @@ import timber.log.Timber
  * AR용 GLSurfaceView 래퍼
  * 터치 이벤트 처리 및 렌더러 연결
  */
+@SuppressLint("ViewConstructor") // Created programmatically, not used in XML layouts
 class ARGLSurfaceView(
     context: Context,
     private val arSessionManager: ARSessionManager,
