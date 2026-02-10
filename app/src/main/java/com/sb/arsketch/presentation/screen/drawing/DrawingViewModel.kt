@@ -4,7 +4,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.graphics.Bitmap
 import android.os.IBinder
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,6 +11,7 @@ import com.sb.arsketch.domain.model.BrushSettings
 import com.sb.arsketch.domain.model.DrawingMode
 import com.sb.arsketch.domain.model.Point3D
 import com.sb.arsketch.domain.model.Stroke
+import com.sb.arsketch.domain.model.StrokeEvent
 import com.sb.arsketch.domain.usecase.session.CreateSessionUseCase
 import com.sb.arsketch.domain.usecase.session.LoadSessionUseCase
 import com.sb.arsketch.domain.usecase.session.SaveSessionUseCase
@@ -23,7 +23,7 @@ import com.sb.arsketch.domain.usecase.stroke.UndoStrokeUseCase
 import com.sb.arsketch.presentation.state.ARState
 import com.sb.arsketch.presentation.state.DrawingUiState
 import com.sb.arsketch.presentation.state.StreamingUiState
-import com.sb.arsketch.streaming.ARStreamingService
+import com.sb.arsketch.streaming.HybridStreamingService
 import com.sb.arsketch.streaming.StreamingState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -59,24 +59,26 @@ class DrawingViewModel @Inject constructor(
 
     private var currentSessionId: String = UUID.randomUUID().toString()
 
-    // AR 스트리밍
-    private var streamingService: ARStreamingService? = null
+    // Hybrid 스트리밍 (Camera Track + DataChannel)
+    private var streamingService: HybridStreamingService? = null
     private var isServiceBound = false
     private var pendingStreamingConfig: StreamingConfig? = null
 
+    // DataChannel 이벤트 쓰로틀링
+    private var lastEventTime = 0L
+    private val eventThrottleMs = 16L  // ~60 events/sec
+
     private data class StreamingConfig(
         val url: String,
-        val token: String,
-        val width: Int,
-        val height: Int
+        val token: String
     )
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            val binder = service as ARStreamingService.LocalBinder
+            val binder = service as HybridStreamingService.LocalBinder
             streamingService = binder.getService()
             isServiceBound = true
-            Timber.d("ARStreamingService connected")
+            Timber.d("HybridStreamingService connected")
 
             // 대기 중인 스트리밍 시작
             pendingStreamingConfig?.let { config ->
@@ -91,7 +93,7 @@ class DrawingViewModel @Inject constructor(
         override fun onServiceDisconnected(name: ComponentName?) {
             streamingService = null
             isServiceBound = false
-            Timber.d("ARStreamingService disconnected")
+            Timber.d("HybridStreamingService disconnected")
 
             _uiState.update { it.copy(streamingState = StreamingUiState.Idle) }
         }
@@ -104,9 +106,7 @@ class DrawingViewModel @Inject constructor(
                     is StreamingState.Idle -> StreamingUiState.Idle
                     is StreamingState.Connecting -> StreamingUiState.Connecting
                     is StreamingState.Streaming -> StreamingUiState.Streaming(
-                        roomName = state.roomName,
-                        resolution = state.resolution,
-                        fps = streamingService?.getCurrentFps() ?: 0f
+                        roomName = state.roomName
                     )
                     is StreamingState.Error -> StreamingUiState.Error(state.message)
                 }
@@ -153,13 +153,8 @@ class DrawingViewModel @Inject constructor(
             // 에러 처리
             is DrawingAction.ClearError -> clearError()
 
-            // AR 스트리밍
-            is DrawingAction.StartStreaming -> startStreaming(
-                action.url,
-                action.token,
-                action.width,
-                action.height
-            )
+            // Hybrid 스트리밍
+            is DrawingAction.StartStreaming -> startStreaming(action.url, action.token)
             is DrawingAction.StopStreaming -> stopStreaming()
         }
     }
@@ -185,6 +180,17 @@ class DrawingViewModel @Inject constructor(
             )
         }
 
+        // DataChannel로 StrokeEvent 전송
+        publishStrokeEvent(
+            StrokeEvent.Started(
+                strokeId = stroke.id,
+                startPoint = point,
+                color = state.brushSettings.color,
+                thickness = state.brushSettings.thickness.value,
+                mode = state.drawingMode
+            )
+        )
+
         Timber.d("스트로크 시작: ${stroke.id}, anchorId: $anchorId")
     }
 
@@ -195,6 +201,18 @@ class DrawingViewModel @Inject constructor(
 
         if (updatedStroke !== currentStroke) {
             _uiState.update { it.copy(currentStroke = updatedStroke) }
+
+            // 쓰로틀링: ~60 events/sec
+            val now = System.currentTimeMillis()
+            if (now - lastEventTime >= eventThrottleMs) {
+                lastEventTime = now
+                publishStrokeEvent(
+                    StrokeEvent.PointAdded(
+                        strokeId = currentStroke.id,
+                        point = point
+                    )
+                )
+            }
         }
     }
 
@@ -209,6 +227,8 @@ class DrawingViewModel @Inject constructor(
                     canUndo = true
                 )
             }
+
+            publishStrokeEvent(StrokeEvent.Ended(strokeId = currentStroke.id))
             Timber.d("스트로크 완료: ${currentStroke.id}, 점 개수: ${currentStroke.points.size}")
         } else {
             _uiState.update { it.copy(currentStroke = null) }
@@ -218,6 +238,8 @@ class DrawingViewModel @Inject constructor(
 
     private fun undo() {
         val state = _uiState.value
+        val lastStroke = state.strokes.lastOrNull()
+
         val (newStrokes, newUndoneStrokes) = undoStrokeUseCase(
             strokes = state.strokes,
             undoneStrokes = state.undoneStrokes
@@ -230,6 +252,10 @@ class DrawingViewModel @Inject constructor(
                 canUndo = newStrokes.isNotEmpty(),
                 canRedo = newUndoneStrokes.isNotEmpty()
             )
+        }
+
+        lastStroke?.let {
+            publishStrokeEvent(StrokeEvent.Deleted(strokeId = it.id))
         }
 
         Timber.d("Undo 실행, 남은 스트로크: ${newStrokes.size}")
@@ -266,6 +292,8 @@ class DrawingViewModel @Inject constructor(
                 canRedo = false
             )
         }
+
+        publishStrokeEvent(StrokeEvent.AllCleared())
 
         Timber.d("모두 지우기 실행")
     }
@@ -378,9 +406,9 @@ class DrawingViewModel @Inject constructor(
         return state.strokes to state.currentStroke
     }
 
-    // ========== AR 스트리밍 ==========
+    // ========== Hybrid 스트리밍 ==========
 
-    private fun startStreaming(url: String, token: String, width: Int, height: Int) {
+    private fun startStreaming(url: String, token: String) {
         if (_uiState.value.streamingState !is StreamingUiState.Idle) {
             Timber.w("Already streaming or connecting")
             return
@@ -388,14 +416,13 @@ class DrawingViewModel @Inject constructor(
 
         _uiState.update { it.copy(streamingState = StreamingUiState.Connecting) }
 
-        val config = StreamingConfig(url, token, width, height)
+        val config = StreamingConfig(url, token)
 
         if (isServiceBound && streamingService != null) {
             startStreamingWithService(config)
         } else {
-            // 서비스 시작 및 바인딩
             pendingStreamingConfig = config
-            val serviceIntent = Intent(context, ARStreamingService::class.java)
+            val serviceIntent = Intent(context, HybridStreamingService::class.java)
             context.startForegroundService(serviceIntent)
             context.bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
         }
@@ -405,11 +432,8 @@ class DrawingViewModel @Inject constructor(
         streamingService?.connect(
             url = config.url,
             token = config.token,
-            width = config.width,
-            height = config.height,
-            fps = 30,
             onSuccess = {
-                Timber.d("Streaming started successfully")
+                Timber.d("Hybrid streaming started successfully")
                 _events.trySend(DrawingEvent.StreamingStarted)
             },
             onError = { e ->
@@ -440,14 +464,11 @@ class DrawingViewModel @Inject constructor(
     }
 
     /**
-     * ARRenderer에서 호출되는 프레임 콜백.
-     * GLThread에서 호출됩니다.
-     *
-     * @param bitmap 합성된 AR 프레임
+     * StrokeEvent를 DataChannel로 전송 (스트리밍 중일 때만)
      */
-    fun onFrameComposited(bitmap: Bitmap) {
+    private fun publishStrokeEvent(event: StrokeEvent) {
         if (_uiState.value.streamingState is StreamingUiState.Streaming) {
-            streamingService?.pushFrame(bitmap)
+            streamingService?.publishStrokeEvent(event)
         }
     }
 

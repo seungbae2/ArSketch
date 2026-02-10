@@ -43,12 +43,10 @@ sealed interface DrawingAction {
     // 에러 처리
     data object ClearError : DrawingAction
 
-    // AR 스트리밍
+    // Hybrid 스트리밍 (Camera Track + DataChannel)
     data class StartStreaming(
         val url: String,
-        val token: String,
-        val width: Int = 1920,
-        val height: Int = 1080
+        val token: String
     ) : DrawingAction
     data object StopStreaming : DrawingAction
 }

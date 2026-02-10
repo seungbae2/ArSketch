@@ -24,7 +24,7 @@ data class DrawingUiState(
 )
 
 /**
- * 스트리밍 UI 상태
+ * Hybrid 스트리밍 UI 상태
  */
 sealed class StreamingUiState {
     /** 대기 상태 */
@@ -33,11 +33,9 @@ sealed class StreamingUiState {
     /** 연결 중 */
     data object Connecting : StreamingUiState()
 
-    /** 스트리밍 중 */
+    /** 스트리밍 중 (Camera Track + DataChannel) */
     data class Streaming(
-        val roomName: String = "",
-        val resolution: String = "",
-        val fps: Float = 0f
+        val roomName: String = ""
     ) : StreamingUiState()
 
     /** 오류 발생 */
