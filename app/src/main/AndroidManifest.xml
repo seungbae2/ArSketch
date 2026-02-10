@@ -5,7 +5,6 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
 
     <uses-feature android:name="android.hardware.camera.ar" android:required="true" />
@@ -37,12 +36,7 @@
         </activity>
 
         <service
-            android:name=".streaming.ScreenCaptureService"
-            android:foregroundServiceType="mediaProjection"
-            android:exported="false" />
-
-        <service
-            android:name=".streaming.ARStreamingService"
+            android:name=".streaming.HybridStreamingService"
             android:foregroundServiceType="camera"
             android:exported="false" />
     </application>
