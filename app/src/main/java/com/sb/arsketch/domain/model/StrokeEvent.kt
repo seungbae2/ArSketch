@@ -51,6 +51,15 @@ sealed class StrokeEvent {
     ) : StrokeEvent()
 
     /**
+     * 스트로크 복원 이벤트 (Redo)
+     */
+    @Serializable
+    data class Restored(
+        val strokeId: String,
+        val timestamp: Long = System.currentTimeMillis()
+    ) : StrokeEvent()
+
+    /**
      * 모든 스트로크 삭제 이벤트
      */
     @Serializable

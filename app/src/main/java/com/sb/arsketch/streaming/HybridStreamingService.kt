@@ -12,6 +12,8 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.sb.arsketch.domain.model.StrokeEvent
 import io.livekit.android.LiveKit
+import io.livekit.android.events.RoomEvent
+import io.livekit.android.events.collect
 import io.livekit.android.room.Room
 import io.livekit.android.room.track.DataPublishReliability
 import kotlinx.coroutines.CoroutineScope
@@ -44,6 +46,10 @@ class HybridStreamingService : Service() {
     // 스트리밍 상태
     private val _streamingState = MutableStateFlow<StreamingState>(StreamingState.Idle)
     val streamingState: StateFlow<StreamingState> = _streamingState.asStateFlow()
+
+    // 참가자 수
+    private val _participantCount = MutableStateFlow(0)
+    val participantCount: StateFlow<Int> = _participantCount.asStateFlow()
 
     inner class LocalBinder : Binder() {
         fun getService(): HybridStreamingService = this@HybridStreamingService
@@ -110,6 +116,9 @@ class HybridStreamingService : Service() {
                     roomName = room?.name ?: ""
                 )
 
+                // 참가자 수 추적
+                observeParticipantCount()
+
                 onSuccess()
 
             } catch (e: Exception) {
@@ -119,6 +128,22 @@ class HybridStreamingService : Service() {
                 onError(e)
             }
         }
+    }
+
+    private fun observeParticipantCount() {
+        serviceScope.launch {
+            room?.events?.collect { event ->
+                when (event) {
+                    is RoomEvent.ParticipantConnected,
+                    is RoomEvent.ParticipantDisconnected -> {
+                        _participantCount.value = (room?.remoteParticipants?.size ?: 0) + 1
+                    }
+                    else -> {}
+                }
+            }
+        }
+        // 초기값 설정
+        _participantCount.value = (room?.remoteParticipants?.size ?: 0) + 1
     }
 
     /**
@@ -137,7 +162,7 @@ class HybridStreamingService : Service() {
                 room?.localParticipant?.publishData(
                     data = data,
                     reliability = DataPublishReliability.RELIABLE,
-                    topic = DATA_TOPIC_AR_DRAWING
+                    topic = StreamingConstants.DATA_TOPIC_AR_DRAWING
                 )
             } catch (e: Exception) {
                 Timber.e(e, "Error publishing stroke event")
@@ -185,18 +210,16 @@ class HybridStreamingService : Service() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "AR 스트리밍",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "AR Drawing을 스트리밍 중입니다"
-            }
-
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "AR 스트리밍",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "AR Drawing을 스트리밍 중입니다"
         }
+
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(channel)
     }
 
     private fun createNotification(): Notification {
@@ -212,7 +235,6 @@ class HybridStreamingService : Service() {
     companion object {
         private const val CHANNEL_ID = "hybrid_streaming_channel"
         private const val NOTIFICATION_ID = 1003
-        const val DATA_TOPIC_AR_DRAWING = "ar_drawing"
     }
 }
 
