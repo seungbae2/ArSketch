@@ -10,119 +10,82 @@ import androidx.navigation.navArgument
 import com.sb.arsketch.ar.core.AnchorManager
 import com.sb.arsketch.ar.core.ARSessionManager
 import com.sb.arsketch.ar.core.DrawingController
-import com.sb.arsketch.presentation.screen.drawing.DrawingRoute
-import com.sb.arsketch.presentation.screen.home.HomeScreen
-import com.sb.arsketch.presentation.screen.sessions.SessionListScreen
+import com.sb.arsketch.presentation.screen.connect.ConnectRoute
+import com.sb.arsketch.presentation.screen.host.HostRoute
+import com.sb.arsketch.presentation.screen.viewer.ViewerRoute
+import java.net.URLEncoder
 
-/**
- * 네비게이션 라우트 정의
- */
 object Routes {
-    const val HOME = "home"
-    const val DRAWING = "drawing"
-    const val STREAMING = "streaming"
-    const val DRAWING_WITH_SESSION = "drawing/{sessionId}"
-    const val SESSION_LIST = "sessions"
+    const val CONNECT = "connect"
+    const val HOST = "host/{serverUrl}/{token}"
+    const val VIEWER = "viewer/{serverUrl}/{token}"
 
-    fun drawingWithSession(sessionId: String) = "drawing/$sessionId"
+    fun host(serverUrl: String, token: String): String {
+        val encodedUrl = URLEncoder.encode(serverUrl, "UTF-8")
+        val encodedToken = URLEncoder.encode(token, "UTF-8")
+        return "host/$encodedUrl/$encodedToken"
+    }
+
+    fun viewer(serverUrl: String, token: String): String {
+        val encodedUrl = URLEncoder.encode(serverUrl, "UTF-8")
+        val encodedToken = URLEncoder.encode(token, "UTF-8")
+        return "viewer/$encodedUrl/$encodedToken"
+    }
 }
 
-/**
- * 앱 네비게이션 그래프
- */
 @Composable
 fun ArSketchNavGraph(
     arSessionManager: ARSessionManager,
     drawingController: DrawingController,
     anchorManager: AnchorManager,
     navController: NavHostController = rememberNavController(),
-    startDestination: String = Routes.HOME
+    startDestination: String = Routes.CONNECT
 ) {
     NavHost(
         navController = navController,
         startDestination = startDestination
     ) {
-        // 홈 화면 (모드 선택)
-        composable(Routes.HOME) {
-            HomeScreen(
-                onNavigateToDrawing = {
-                    navController.navigate(Routes.DRAWING)
+        // 연결 화면
+        composable(Routes.CONNECT) {
+            ConnectRoute(
+                onNavigateToHost = { serverUrl, token ->
+                    navController.navigate(Routes.host(serverUrl, token))
                 },
-                onNavigateToStreaming = {
-                    navController.navigate(Routes.STREAMING)
+                onNavigateToViewer = { serverUrl, token ->
+                    navController.navigate(Routes.viewer(serverUrl, token))
                 }
             )
         }
 
-        // 일반 드로잉 화면
-        composable(Routes.DRAWING) {
-            DrawingRoute(
-                arSessionManager = arSessionManager,
-                drawingController = drawingController,
-                anchorManager = anchorManager,
-                isStreamingMode = false,
-                sessionIdToLoad = null,
-                onNavigateToSessions = {
-                    navController.navigate(Routes.SESSION_LIST)
-                },
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        // 스트리밍 드로잉 화면
-        composable(Routes.STREAMING) {
-            DrawingRoute(
-                arSessionManager = arSessionManager,
-                drawingController = drawingController,
-                anchorManager = anchorManager,
-                isStreamingMode = true,
-                sessionIdToLoad = null,
-                onNavigateToSessions = {
-                    navController.navigate(Routes.SESSION_LIST)
-                },
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        // 저장된 세션 불러오기
+        // 호스트 화면 (AR Drawing + Streaming)
         composable(
-            route = Routes.DRAWING_WITH_SESSION,
+            route = Routes.HOST,
             arguments = listOf(
-                navArgument("sessionId") { type = NavType.StringType }
+                navArgument("serverUrl") { type = NavType.StringType },
+                navArgument("token") { type = NavType.StringType }
             )
-        ) { backStackEntry ->
-            val sessionId = backStackEntry.arguments?.getString("sessionId")
-
-            DrawingRoute(
+        ) {
+            HostRoute(
                 arSessionManager = arSessionManager,
                 drawingController = drawingController,
                 anchorManager = anchorManager,
-                isStreamingMode = false,
-                sessionIdToLoad = sessionId,
-                onNavigateToSessions = {
-                    navController.navigate(Routes.SESSION_LIST)
-                },
                 onNavigateBack = {
-                    navController.popBackStack()
+                    navController.popBackStack(Routes.CONNECT, inclusive = false)
                 }
             )
         }
 
-        // 세션 목록 화면
-        composable(Routes.SESSION_LIST) {
-            SessionListScreen(
+        // 뷰어 화면 (Remote Video + Stroke Overlay)
+        composable(
+            route = Routes.VIEWER,
+            arguments = listOf(
+                navArgument("serverUrl") { type = NavType.StringType },
+                navArgument("token") { type = NavType.StringType }
+            )
+        ) {
+            ViewerRoute(
                 onNavigateBack = {
-                    navController.popBackStack()
-                },
-                onSessionSelected = { sessionId ->
-                    navController.navigate(Routes.drawingWithSession(sessionId)) {
-                        // 기존 드로잉 화면 제거
-                        popUpTo(Routes.DRAWING) { inclusive = true }
-                    }
+                    navController.popBackStack(Routes.CONNECT, inclusive = false)
                 }
             )
         }
