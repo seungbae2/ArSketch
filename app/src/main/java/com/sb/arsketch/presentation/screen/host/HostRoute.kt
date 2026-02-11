@@ -173,6 +173,21 @@ fun HostRoute(
 
                 view.post {
                     drawingController.setViewportSize(view.width, view.height)
+                    viewModel.setGLSurfaceView(view)
+                }
+
+                // 화면 회전 등으로 뷰 크기가 바뀌면 캡처 재시작
+                var lastWidth = 0
+                var lastHeight = 0
+                view.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+                    val w = v.width
+                    val h = v.height
+                    if (w > 0 && h > 0 && (w != lastWidth || h != lastHeight)) {
+                        lastWidth = w
+                        lastHeight = h
+                        drawingController.setViewportSize(w, h)
+                        viewModel.setGLSurfaceView(view)
+                    }
                 }
 
                 if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {

@@ -3,6 +3,9 @@ package com.sb.arsketch.ar.renderer
 import android.content.Context
 import android.opengl.GLES30
 import android.opengl.GLSurfaceView
+import android.os.Build
+import android.view.Surface
+import android.view.WindowManager
 import com.google.ar.core.Frame
 import com.google.ar.core.Plane
 import com.google.ar.core.TrackingState
@@ -69,7 +72,7 @@ class ARRenderer(
         viewportHeight = height
         GLES30.glViewport(0, 0, width, height)
 
-        arSessionManager.setDisplayGeometry(0, width, height)
+        arSessionManager.setDisplayGeometry(getDisplayRotation(), width, height)
     }
 
     override fun onDrawFrame(gl: GL10?) {
@@ -79,11 +82,23 @@ class ARRenderer(
             return
         }
 
+        // 매 프레임마다 실제 display rotation을 ARCore에 전달
+        arSessionManager.setDisplayGeometry(getDisplayRotation(), viewportWidth, viewportHeight)
+
         val frame = arSessionManager.update() ?: return
 
         renderScene(frame)
 
         onFrameUpdate?.invoke(frame)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun getDisplayRotation(): Int {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            context.display?.rotation ?: Surface.ROTATION_0
+        } else {
+            (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
+        }
     }
 
     private fun renderScene(frame: Frame) {
