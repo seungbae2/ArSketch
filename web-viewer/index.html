@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ArSketch Web Viewer</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <!-- Connect Screen -->
+    <div id="connect-screen" class="connect-screen">
+      <div class="connect-card">
+        <h1 class="connect-title">ArSketch</h1>
+        <p class="connect-subtitle">Web Viewer</p>
+
+        <form id="connect-form" autocomplete="off">
+          <label for="server-url">Server URL</label>
+          <input
+            id="server-url"
+            type="text"
+            value="wss://ardrawing-xabqpgun.livekit.cloud"
+            placeholder="wss://your-project.livekit.cloud"
+          />
+
+          <label for="token">Token</label>
+          <input
+            id="token"
+            type="text"
+            value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzE0MDAxNDEsImlkZW50aXR5Ijoid2ViLXZpZXdlciIsImlzcyI6IkFQSW93TDZDUXYzODNtQSIsIm5hbWUiOiJXZWIgVmlld2VyIiwibmJmIjoxNzcwNzk1MzQxLCJzdWIiOiJ3ZWItdmlld2VyIiwidmlkZW8iOnsiY2FuUHVibGlzaCI6ZmFsc2UsImNhblB1Ymxpc2hEYXRhIjpmYWxzZSwiY2FuU3Vic2NyaWJlIjp0cnVlLCJyb29tIjoiYXJza2V0Y2giLCJyb29tSm9pbiI6dHJ1ZX19.jXKd_yDBZibLM_z1ZAUPApNq69fq_O4P5QZvhv1mZZM"
+            placeholder="Enter your access token"
+          />
+
+          <button id="connect-btn" type="submit">Connect</button>
+        </form>
+
+        <p id="error-message" class="error-message hidden"></p>
+      </div>
+    </div>
+
+    <!-- Viewer Screen -->
+    <div id="viewer-screen" class="viewer-screen hidden">
+      <div id="viewer-container" class="viewer-container">
+        <video id="remote-video" autoplay playsinline muted></video>
+      </div>
+
+      <!-- Status Bar -->
+      <div class="status-bar">
+        <div class="status-left">
+          <span id="status-dot" class="status-dot"></span>
+          <span id="status-text">Disconnected</span>
+        </div>
+        <div class="status-right">
+          <span class="participant-icon">&#128100;</span>
+          <span id="participant-count">0</span>
+          <button id="disconnect-btn" class="disconnect-btn">Disconnect</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
