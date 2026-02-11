@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.opengl.GLSurfaceView
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
@@ -31,7 +32,7 @@ import timber.log.Timber
 /**
  * Hybrid 스트리밍 서비스.
  *
- * 카메라 영상은 LiveKit VideoTrack으로,
+ * AR 렌더링 영상은 ARFrameCapturer(PixelCopy)를 통해 LiveKit VideoTrack으로,
  * AR 드로잉 데이터는 DataChannel(JSON)로 전송합니다.
  */
 class HybridStreamingService : Service() {
@@ -40,6 +41,8 @@ class HybridStreamingService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private var room: Room? = null
+    private val arFrameCapturer = ARFrameCapturer()
+    private var pendingSurfaceView: GLSurfaceView? = null
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -79,7 +82,7 @@ class HybridStreamingService : Service() {
     }
 
     /**
-     * LiveKit 연결 및 카메라 트랙 활성화
+     * LiveKit 연결 (비디오 트랙은 setARSurfaceView에서 시작)
      *
      * @param url LiveKit 서버 URL
      * @param token 인증 토큰
@@ -101,16 +104,11 @@ class HybridStreamingService : Service() {
             try {
                 Timber.d("Connecting to LiveKit: $url")
 
-                // 1. Room 생성 및 연결
+                // Room 생성 및 연결
                 room = LiveKit.create(appContext = applicationContext)
                 room?.connect(url, token)
 
                 Timber.d("Connected to room: ${room?.name}")
-
-                // 2. 후면 카메라 활성화 (LiveKit이 카메라 트랙 생성 및 발행 처리)
-                room?.localParticipant?.setCameraEnabled(true)
-
-                Timber.d("Camera track enabled")
 
                 _streamingState.value = StreamingState.Streaming(
                     roomName = room?.name ?: ""
@@ -119,6 +117,9 @@ class HybridStreamingService : Service() {
                 // 참가자 수 추적
                 observeParticipantCount()
 
+                // GLSurfaceView가 이미 설정되어 있으면 캡처 시작
+                tryStartCapture()
+
                 onSuccess()
 
             } catch (e: Exception) {
@@ -126,6 +127,50 @@ class HybridStreamingService : Service() {
                 _streamingState.value = StreamingState.Error(e.message ?: "Connection failed")
                 cleanup()
                 onError(e)
+            }
+        }
+    }
+
+    /**
+     * AR GLSurfaceView를 설정합니다.
+     * Room이 이미 연결되어 있으면 즉시 캡처를 시작하고,
+     * 아직 연결 전이면 연결 완료 시 자동으로 시작합니다.
+     */
+    fun setARSurfaceView(surfaceView: GLSurfaceView) {
+        Timber.d("setARSurfaceView called, view: ${surfaceView.width}x${surfaceView.height}")
+        pendingSurfaceView = surfaceView
+        tryStartCapture()
+    }
+
+    /**
+     * Room과 GLSurfaceView가 모두 준비되면 AR 프레임 캡처를 시작합니다.
+     */
+    private fun tryStartCapture() {
+        val currentRoom = room ?: run {
+            Timber.d("tryStartCapture: room is null, waiting")
+            return
+        }
+        val view = pendingSurfaceView ?: run {
+            Timber.d("tryStartCapture: surfaceView is null, waiting")
+            return
+        }
+
+        if (_streamingState.value !is StreamingState.Streaming) {
+            Timber.d("tryStartCapture: not streaming yet, waiting")
+            return
+        }
+
+        Timber.d("tryStartCapture: all ready, starting AR capture")
+        pendingSurfaceView = null // 중복 시작 방지
+
+        serviceScope.launch {
+            try {
+                // 기존 캡처 중지 (화면 회전 등으로 뷰가 바뀐 경우)
+                arFrameCapturer.stop()
+                arFrameCapturer.start(currentRoom, view)
+                Timber.d("AR frame capture started successfully")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to start AR frame capture")
             }
         }
     }
@@ -184,9 +229,9 @@ class HybridStreamingService : Service() {
 
     private suspend fun cleanup() {
         try {
-            room?.localParticipant?.setCameraEnabled(false)
+            arFrameCapturer.stop()
         } catch (e: Exception) {
-            Timber.e(e, "Error disabling camera")
+            Timber.e(e, "Error stopping AR frame capture")
         }
 
         try {
@@ -200,6 +245,7 @@ class HybridStreamingService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         // 동기적으로 정리 (coroutine scope 취소 전)
+        arFrameCapturer.stop()
         try {
             room?.disconnect()
         } catch (e: Exception) {

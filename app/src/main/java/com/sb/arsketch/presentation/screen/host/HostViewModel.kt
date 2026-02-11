@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.opengl.GLSurfaceView
 import android.os.IBinder
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -62,6 +63,9 @@ class HostViewModel @Inject constructor(
     private var streamingService: HybridStreamingService? = null
     private var isServiceBound = false
 
+    // AR surface view (for frame capture)
+    private var arSurfaceView: GLSurfaceView? = null
+
     // DataChannel throttling
     private var lastEventTime = 0L
     private val eventThrottleMs = 16L
@@ -72,6 +76,10 @@ class HostViewModel @Inject constructor(
             streamingService = binder.getService()
             isServiceBound = true
             Timber.d("HybridStreamingService connected")
+
+            // GLSurfaceView가 이미 있으면 서비스에 전달
+            arSurfaceView?.let { streamingService?.setARSurfaceView(it) }
+
             startStreamingWithService()
             observeStreamingState()
         }
@@ -236,6 +244,15 @@ class HostViewModel @Inject constructor(
     fun getStrokesForRendering(): Pair<List<Stroke>, Stroke?> {
         val state = _uiState.value
         return state.strokes to state.currentStroke
+    }
+
+    /**
+     * AR GLSurfaceView가 생성된 후 호출.
+     * 서비스에 뷰를 전달하면, 서비스가 Room 연결과 뷰 모두 준비될 때 캡처를 시작합니다.
+     */
+    fun setGLSurfaceView(surfaceView: GLSurfaceView) {
+        arSurfaceView = surfaceView
+        streamingService?.setARSurfaceView(surfaceView)
     }
 
     // ========== Streaming ==========
