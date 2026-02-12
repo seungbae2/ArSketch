@@ -10,9 +10,9 @@ import androidx.navigation.navArgument
 import com.sb.arsketch.ar.core.AnchorManager
 import com.sb.arsketch.ar.core.ARSessionManager
 import com.sb.arsketch.ar.core.DrawingController
-import com.sb.arsketch.presentation.screen.connect.ConnectRoute
-import com.sb.arsketch.presentation.screen.host.HostRoute
-import com.sb.arsketch.presentation.screen.viewer.ViewerRoute
+import com.sb.arsketch.presentation.connect.ConnectRoute
+import com.sb.arsketch.presentation.host.HostRoute
+import com.sb.arsketch.presentation.viewer.ViewerRoute
 import java.net.URLEncoder
 
 object Routes {
