@@ -13,6 +13,15 @@ sealed interface HostAction {
     data class TouchMove(val point: Point3D) : HostAction
     data object TouchEnd : HostAction
 
+    // 리모트 터치 이벤트 (웹 뷰어에서 수신)
+    data class RemoteTouchStart(
+        val point: Point3D,
+        val anchorId: String?,
+        val color: Int,
+        val thickness: Float,
+        val mode: DrawingMode
+    ) : HostAction
+
     // Undo/Redo/Clear
     data object Undo : HostAction
     data object Redo : HostAction

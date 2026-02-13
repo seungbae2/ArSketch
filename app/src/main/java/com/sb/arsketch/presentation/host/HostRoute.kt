@@ -102,7 +102,19 @@ fun HostRoute(
     // 드로잉 컨트롤러 콜백 설정
     LaunchedEffect(drawingController) {
         drawingController.onStrokeStartWithAnchor = { info ->
-            viewModel.onAction(HostAction.TouchStart(info.localPoint, info.anchorId))
+            if (info.remoteBrush != null) {
+                viewModel.onAction(
+                    HostAction.RemoteTouchStart(
+                        point = info.localPoint,
+                        anchorId = info.anchorId,
+                        color = info.remoteBrush.color,
+                        thickness = info.remoteBrush.thickness,
+                        mode = info.remoteBrush.mode
+                    )
+                )
+            } else {
+                viewModel.onAction(HostAction.TouchStart(info.localPoint, info.anchorId))
+            }
         }
         drawingController.onStrokePoint = { point ->
             viewModel.onAction(HostAction.TouchMove(point))
