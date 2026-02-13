@@ -11,6 +11,7 @@ import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import com.sb.arsketch.domain.model.RemoteTouchEvent
 import com.sb.arsketch.domain.model.StrokeEvent
 import io.livekit.android.LiveKit
 import io.livekit.android.events.RoomEvent
@@ -45,6 +46,9 @@ class HybridStreamingService : Service() {
     private var pendingSurfaceView: GLSurfaceView? = null
 
     private val json = Json { ignoreUnknownKeys = true }
+
+    // 리모트 터치 이벤트 수신 콜백
+    var onRemoteTouchReceived: ((RemoteTouchEvent) -> Unit)? = null
 
     // 스트리밍 상태
     private val _streamingState = MutableStateFlow<StreamingState>(StreamingState.Idle)
@@ -115,7 +119,7 @@ class HybridStreamingService : Service() {
                 )
 
                 // 참가자 수 추적
-                observeParticipantCount()
+                observeRoomEvents()
 
                 // GLSurfaceView가 이미 설정되어 있으면 캡처 시작
                 tryStartCapture()
@@ -175,13 +179,24 @@ class HybridStreamingService : Service() {
         }
     }
 
-    private fun observeParticipantCount() {
+    private fun observeRoomEvents() {
         serviceScope.launch {
             room?.events?.collect { event ->
                 when (event) {
                     is RoomEvent.ParticipantConnected,
                     is RoomEvent.ParticipantDisconnected -> {
                         _participantCount.value = (room?.remoteParticipants?.size ?: 0) + 1
+                    }
+                    is RoomEvent.DataReceived -> {
+                        if (event.topic == StreamingConstants.DATA_TOPIC_REMOTE_TOUCH) {
+                            try {
+                                val jsonString = event.data.toString(Charsets.UTF_8)
+                                val touchEvent = json.decodeFromString<RemoteTouchEvent>(jsonString)
+                                onRemoteTouchReceived?.invoke(touchEvent)
+                            } catch (e: Exception) {
+                                Timber.e(e, "Failed to deserialize RemoteTouchEvent")
+                            }
+                        }
                     }
                     else -> {}
                 }
