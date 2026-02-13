@@ -11,11 +11,22 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
+ * 리모트 브러시 정보 (웹 뷰어에서 수신)
+ */
+data class RemoteBrushInfo(
+    val color: Int,
+    val thickness: Float,
+    val mode: DrawingMode,
+    val senderId: String
+)
+
+/**
  * 스트로크 시작 정보 (Anchor 포함)
  */
 data class StrokeStartInfo(
     val localPoint: Point3D,  // Anchor 기준 로컬 좌표
-    val anchorId: String?     // Anchor ID (Surface/Air 모드 공통)
+    val anchorId: String?,    // Anchor ID (Surface/Air 모드 공통)
+    val remoteBrush: RemoteBrushInfo? = null  // null = 로컬 터치
 )
 
 /**
@@ -50,7 +61,14 @@ class DrawingController @Inject constructor(
     var onStrokeStart: ((Point3D) -> Unit)? = null
 
     // 드로잉 상태
+    @Volatile
     private var isDrawing = false
+
+    // 현재 스트로크의 모드 (down~up 동안 유지)
+    private var currentStrokeMode: DrawingMode? = null
+
+    // 리모트 브러시 정보 (콜백 전달용)
+    private var pendingRemoteBrush: RemoteBrushInfo? = null
 
     // 현재 스트로크의 Anchor 정보
     private var currentAnchorId: String? = null
@@ -82,8 +100,11 @@ class DrawingController @Inject constructor(
      * 터치 다운 처리
      */
     fun onTouchDown(screenX: Float, screenY: Float) {
+        if (isDrawing) return  // 동시 스트로크 방지
         val frame = currentFrame ?: return
         if (viewportWidth <= 0 || viewportHeight <= 0) return
+
+        currentStrokeMode = drawingMode
 
         val result = touchToWorldConverter.convertWithDetails(
             frame = frame,
@@ -108,7 +129,9 @@ class DrawingController @Inject constructor(
                         val localPoint = Point3D.ZERO
 
                         isDrawing = true
-                        onStrokeStartWithAnchor?.invoke(StrokeStartInfo(localPoint, anchorId))
+                        onStrokeStartWithAnchor?.invoke(
+                            StrokeStartInfo(localPoint, anchorId, pendingRemoteBrush)
+                        )
                         onStrokeStart?.invoke(localPoint)
                         Timber.d("드로잉 시작 (Surface): anchorId=$anchorId, localPoint=$localPoint")
                     } else {
@@ -131,7 +154,9 @@ class DrawingController @Inject constructor(
                             val localPoint = Point3D.ZERO
 
                             isDrawing = true
-                            onStrokeStartWithAnchor?.invoke(StrokeStartInfo(localPoint, anchorId))
+                            onStrokeStartWithAnchor?.invoke(
+                                StrokeStartInfo(localPoint, anchorId, pendingRemoteBrush)
+                            )
                             onStrokeStart?.invoke(localPoint)
                             Timber.d("드로잉 시작 (Air): anchorId=$anchorId, localPoint=$localPoint")
                         } else {
@@ -155,6 +180,7 @@ class DrawingController @Inject constructor(
         if (!isDrawing) return
 
         val frame = currentFrame ?: return
+        val activeMode = currentStrokeMode ?: drawingMode
 
         val result = touchToWorldConverter.convertWithDetails(
             frame = frame,
@@ -162,7 +188,7 @@ class DrawingController @Inject constructor(
             screenY = screenY,
             viewportWidth = viewportWidth,
             viewportHeight = viewportHeight,
-            mode = drawingMode
+            mode = activeMode
         )
 
         when (result) {
@@ -194,10 +220,100 @@ class DrawingController @Inject constructor(
     fun onTouchUp() {
         if (isDrawing) {
             isDrawing = false
+            currentStrokeMode = null
+            pendingRemoteBrush = null
             currentAnchorId = null
             currentAnchorPose = null
             onStrokeEnd?.invoke()
             Timber.d("드로잉 종료")
+        }
+    }
+
+    /**
+     * 리모트 터치 다운 처리 (웹 뷰어에서 수신)
+     * drawingMode를 변경하지 않고 mode를 직접 전달하여 좌표 변환
+     */
+    fun onRemoteTouchDown(screenX: Float, screenY: Float, remoteBrush: RemoteBrushInfo) {
+        if (isDrawing) return  // 동시 드로잉 방지
+        val frame = currentFrame ?: return
+        if (viewportWidth <= 0 || viewportHeight <= 0) return
+
+        pendingRemoteBrush = remoteBrush
+
+        var result = touchToWorldConverter.convertWithDetails(
+            frame = frame,
+            screenX = screenX,
+            screenY = screenY,
+            viewportWidth = viewportWidth,
+            viewportHeight = viewportHeight,
+            mode = remoteBrush.mode
+        )
+
+        // SURFACE NoHit → AIR fallback
+        if (result is ConversionResult.NoHit && remoteBrush.mode == DrawingMode.SURFACE) {
+            result = touchToWorldConverter.convertWithDetails(
+                frame = frame,
+                screenX = screenX,
+                screenY = screenY,
+                viewportWidth = viewportWidth,
+                viewportHeight = viewportHeight,
+                mode = DrawingMode.AIR
+            )
+        }
+
+        when (result) {
+            is ConversionResult.SurfaceHit -> {
+                val anchorId = anchorManager.createAnchor(result.hitResult)
+                if (anchorId != null) {
+                    val anchorPose = anchorManager.getAnchorPose(anchorId)
+                    if (anchorPose != null) {
+                        currentAnchorId = anchorId
+                        currentAnchorPose = anchorPose
+                        currentStrokeMode = DrawingMode.SURFACE
+                        isDrawing = true
+                        onStrokeStartWithAnchor?.invoke(
+                            StrokeStartInfo(Point3D.ZERO, anchorId, remoteBrush)
+                        )
+                        Timber.d("리모트 드로잉 시작 (Surface): anchorId=$anchorId, sender=${remoteBrush.senderId}")
+                    } else {
+                        anchorManager.releaseAnchor(anchorId)
+                        pendingRemoteBrush = null
+                    }
+                } else {
+                    pendingRemoteBrush = null
+                }
+            }
+            is ConversionResult.AirPoint -> {
+                val session = arSessionManager.getSession()
+                if (session != null) {
+                    val anchorId = anchorManager.createAnchorFromPose(session, result.pose)
+                    if (anchorId != null) {
+                        val anchorPose = anchorManager.getAnchorPose(anchorId)
+                        if (anchorPose != null) {
+                            currentAnchorId = anchorId
+                            currentAnchorPose = anchorPose
+                            currentStrokeMode = DrawingMode.AIR
+                            isDrawing = true
+                            onStrokeStartWithAnchor?.invoke(
+                                StrokeStartInfo(Point3D.ZERO, anchorId, remoteBrush)
+                            )
+                            Timber.d("리모트 드로잉 시작 (Air): anchorId=$anchorId, sender=${remoteBrush.senderId}")
+                        } else {
+                            anchorManager.releaseAnchor(anchorId)
+                            pendingRemoteBrush = null
+                        }
+                    } else {
+                        pendingRemoteBrush = null
+                    }
+                } else {
+                    pendingRemoteBrush = null
+                    Timber.w("AR 세션이 없어 리모트 드로잉 불가")
+                }
+            }
+            is ConversionResult.NoHit -> {
+                pendingRemoteBrush = null
+                Timber.v("리모트 드로잉 시작 실패: 히트 없음")
+            }
         }
     }
 
@@ -210,4 +326,10 @@ class DrawingController @Inject constructor(
      * 현재 스트로크의 Anchor ID
      */
     fun getCurrentAnchorId(): String? = currentAnchorId
+
+    /**
+     * 뷰포트 크기 getter (리모트 터치 좌표 변환용)
+     */
+    fun getViewportWidth(): Int = viewportWidth
+    fun getViewportHeight(): Int = viewportHeight
 }
