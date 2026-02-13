@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +7,12 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.serialization)
+}
+
+// Read LiveKit credentials from local.properties (gitignored)
+val localProperties = Properties()
+rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use {
+    localProperties.load(it)
 }
 
 android {
@@ -19,6 +27,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "LIVEKIT_URL", "\"${localProperties.getProperty("LIVEKIT_URL", "")}\"")
+        buildConfigField("String", "LIVEKIT_HOST_TOKEN", "\"${localProperties.getProperty("LIVEKIT_HOST_TOKEN", "")}\"")
     }
 
     buildTypes {
