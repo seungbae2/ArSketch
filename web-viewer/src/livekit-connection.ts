@@ -79,6 +79,17 @@ export class LiveKitConnection {
   }
 
   /**
+   * DataChannel로 데이터 발행. remote_touch 토픽 전송에 사용.
+   */
+  publishData(data: Uint8Array, topic: string): void {
+    if (!this.room) return;
+    this.room.localParticipant.publishData(data, {
+      reliable: true,
+      topic: topic,
+    });
+  }
+
+  /**
    * When the viewer joins after the host, tracks are already published.
    * TrackSubscribed may not fire for them, so we manually attach.
    */

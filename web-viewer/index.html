@@ -18,7 +18,7 @@
           <input
             id="server-url"
             type="text"
-            value="wss://ardrawing-xabqpgun.livekit.cloud"
+            value=""
             placeholder="wss://your-project.livekit.cloud"
           />
 
@@ -26,7 +26,7 @@
           <input
             id="token"
             type="text"
-            value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NzE0MDAxNDEsImlkZW50aXR5Ijoid2ViLXZpZXdlciIsImlzcyI6IkFQSW93TDZDUXYzODNtQSIsIm5hbWUiOiJXZWIgVmlld2VyIiwibmJmIjoxNzcwNzk1MzQxLCJzdWIiOiJ3ZWItdmlld2VyIiwidmlkZW8iOnsiY2FuUHVibGlzaCI6ZmFsc2UsImNhblB1Ymxpc2hEYXRhIjpmYWxzZSwiY2FuU3Vic2NyaWJlIjp0cnVlLCJyb29tIjoiYXJza2V0Y2giLCJyb29tSm9pbiI6dHJ1ZX19.jXKd_yDBZibLM_z1ZAUPApNq69fq_O4P5QZvhv1mZZM"
+            value=""
             placeholder="Enter your access token"
           />
 
@@ -41,6 +41,36 @@
     <div id="viewer-screen" class="viewer-screen hidden">
       <div id="viewer-container" class="viewer-container">
         <video id="remote-video" autoplay playsinline muted></video>
+        <div id="drawing-overlay" class="drawing-overlay"></div>
+      </div>
+
+      <!-- Drawing Toolbar -->
+      <div id="drawing-toolbar" class="drawing-toolbar">
+        <div class="toolbar-section">
+          <div id="mode-toggle" class="mode-toggle">
+            <button class="mode-btn active" data-mode="AIR">Air</button>
+            <button class="mode-btn" data-mode="SURFACE">Surface</button>
+          </div>
+        </div>
+        <div class="toolbar-section">
+          <div id="color-picker" class="color-picker">
+            <button class="color-swatch active" data-color="-65536" style="background:#FF0000"></button>
+            <button class="color-swatch" data-color="-30720" style="background:#FF8800"></button>
+            <button class="color-swatch" data-color="-256" style="background:#FFFF00"></button>
+            <button class="color-swatch" data-color="-16711936" style="background:#00FF00"></button>
+            <button class="color-swatch" data-color="-16742145" style="background:#0088FF"></button>
+            <button class="color-swatch" data-color="-7864065" style="background:#8800FF"></button>
+            <button class="color-swatch" data-color="-1" style="background:#FFFFFF"></button>
+            <button class="color-swatch" data-color="-16777216" style="background:#000000"></button>
+          </div>
+        </div>
+        <div class="toolbar-section">
+          <div id="thickness-picker" class="thickness-picker">
+            <button class="thickness-btn" data-thickness="0.003">S</button>
+            <button class="thickness-btn active" data-thickness="0.006">M</button>
+            <button class="thickness-btn" data-thickness="0.012">L</button>
+          </div>
+        </div>
       </div>
 
       <!-- Status Bar -->
