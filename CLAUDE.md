@@ -82,14 +82,14 @@ ArSketch is a real-time AR drawing Android app that streams augmented reality sk
 ### Module Dependencies
 
 ```
-feature:host ──┐
-feature:viewer ┼──▶ core:domain, core:streaming-api, core:ui
-feature:connect┘
+feature:host ────▶ core:domain, core:ar, core:streaming-api, core:ui
+feature:viewer ──▶ core:domain, core:streaming-api, core:ui
+feature:connect ─▶ core:domain, core:ui
 
-core:streaming ───▶ core:streaming-api, core:domain
-core:ar ──────────▶ core:domain
+core:streaming ──▶ core:streaming-api, core:domain
+core:ar ─────────▶ core:domain
 
-app ──────────────▶ all modules (assembly + DI)
+app ─────────────▶ all modules (assembly + DI)
 ```
 
 ### Key Directories

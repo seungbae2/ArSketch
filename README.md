@@ -48,15 +48,14 @@ Draw on surfaces or in mid-air using ARCore, and share your creation live with a
 ### Module Dependency Graph
 
 ```
-feature:host ──┐
-feature:viewer ┼──▶ core:domain
-feature:connect┘    core:streaming-api
-                    core:ui
+feature:host ────▶ core:domain, core:ar, core:streaming-api, core:ui
+feature:viewer ──▶ core:domain, core:streaming-api, core:ui
+feature:connect ─▶ core:domain, core:ui
 
-core:streaming ───▶ core:streaming-api, core:domain
-core:ar ───────────▶ core:domain
+core:streaming ──▶ core:streaming-api, core:domain
+core:ar ─────────▶ core:domain
 
-app ───────────────▶ all modules (assembly + DI)
+app ─────────────▶ all modules (assembly + DI)
 ```
 
 ### System Architecture
