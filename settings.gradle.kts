@@ -22,4 +22,12 @@ dependencyResolutionManagement {
 
 rootProject.name = "ArSketch"
 include(":app")
+include(":core:domain")
+include(":core:ar")
+include(":core:streaming-api")
+include(":core:streaming")
+include(":core:ui")
+include(":feature:host")
+include(":feature:viewer")
+include(":feature:connect")
  
