@@ -17,7 +17,7 @@ android {
 
 dependencies {
     implementation(project(":core:domain"))
-    implementation(libs.arcore)
+    api(libs.arcore)
     implementation(libs.timber)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

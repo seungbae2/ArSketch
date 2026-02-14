@@ -93,9 +93,6 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-    // ARCore
-    implementation(libs.arcore)
-
     // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
