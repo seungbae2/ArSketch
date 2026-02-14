@@ -24,6 +24,7 @@ import com.sb.arsketch.domain.usecase.stroke.RedoStrokeUseCase
 import com.sb.arsketch.domain.usecase.stroke.UndoStrokeUseCase
 import com.sb.arsketch.streaming.HybridStreamingService
 import com.sb.arsketch.streaming.StreamingState
+import com.sb.arsketch.streaming.api.HostStreamingController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.Channel
@@ -63,8 +64,8 @@ class HostViewModel @Inject constructor(
     private val _events = Channel<HostEvent>(Channel.BUFFERED)
     val events = _events.receiveAsFlow()
 
-    // Streaming service
-    private var streamingService: HybridStreamingService? = null
+    // Streaming controller
+    private var streamingController: HostStreamingController? = null
     private var isServiceBound = false
 
     // AR surface view (for frame capture)
@@ -77,15 +78,15 @@ class HostViewModel @Inject constructor(
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             val binder = service as HybridStreamingService.LocalBinder
-            streamingService = binder.getController() as HybridStreamingService
+            streamingController = binder.getController()
             isServiceBound = true
             Timber.d("HybridStreamingService connected")
 
             // GLSurfaceView가 이미 있으면 서비스에 전달
-            arSurfaceView?.let { streamingService?.setARSurfaceView(it) }
+            arSurfaceView?.let { streamingController?.setARSurfaceView(it) }
 
             // 리모트 터치 이벤트 수신 콜백 등록
-            streamingService?.onRemoteTouchReceived = { event ->
+            streamingController?.onRemoteTouchReceived = { event ->
                 handleRemoteTouchEvent(event)
             }
 
@@ -94,7 +95,7 @@ class HostViewModel @Inject constructor(
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
-            streamingService = null
+            streamingController = null
             isServiceBound = false
             _uiState.update { it.copy(streamingState = StreamingUiState.Idle) }
         }
@@ -315,7 +316,7 @@ class HostViewModel @Inject constructor(
      */
     fun setGLSurfaceView(surfaceView: GLSurfaceView) {
         arSurfaceView = surfaceView
-        streamingService?.setARSurfaceView(surfaceView)
+        streamingController?.setARSurfaceView(surfaceView)
     }
 
     // ========== Streaming ==========
@@ -329,7 +330,7 @@ class HostViewModel @Inject constructor(
     }
 
     private fun startStreamingWithService() {
-        streamingService?.connect(
+        streamingController?.connect(
             url = serverUrl,
             token = token,
             onSuccess = {
@@ -347,7 +348,7 @@ class HostViewModel @Inject constructor(
 
     private fun observeStreamingState() {
         viewModelScope.launch {
-            streamingService?.streamingState?.collect { state ->
+            streamingController?.streamingState?.collect { state ->
                 val uiStreamingState = when (state) {
                     is StreamingState.Idle -> StreamingUiState.Idle
                     is StreamingState.Connecting -> StreamingUiState.Connecting
@@ -358,7 +359,7 @@ class HostViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            streamingService?.participantCount?.collect { count ->
+            streamingController?.participantCount?.collect { count ->
                 _uiState.update { it.copy(participantCount = count) }
             }
         }
@@ -366,13 +367,13 @@ class HostViewModel @Inject constructor(
 
     private fun publishStrokeEvent(event: StrokeEvent) {
         if (_uiState.value.streamingState is StreamingUiState.Streaming) {
-            streamingService?.publishStrokeEvent(event)
+            streamingController?.publishStrokeEvent(event)
         }
     }
 
     private fun disconnect() {
-        streamingService?.onRemoteTouchReceived = null
-        streamingService?.disconnect()
+        streamingController?.onRemoteTouchReceived = null
+        streamingController?.disconnect()
 
         if (isServiceBound) {
             try {
@@ -383,7 +384,7 @@ class HostViewModel @Inject constructor(
             isServiceBound = false
         }
 
-        streamingService = null
+        streamingController = null
         _uiState.update { it.copy(streamingState = StreamingUiState.Idle) }
         viewModelScope.launch { _events.send(HostEvent.Disconnected) }
     }
