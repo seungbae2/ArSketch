@@ -1,4 +1,4 @@
-package com.sb.arsketch.streaming
+package com.sb.arsketch.streaming.api
 
 sealed class ViewerConnectionState {
     data object Disconnected : ViewerConnectionState()

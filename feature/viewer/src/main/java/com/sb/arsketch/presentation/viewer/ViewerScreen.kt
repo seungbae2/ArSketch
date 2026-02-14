@@ -31,7 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.sb.arsketch.presentation.viewer.component.StrokeOverlay
-import com.sb.arsketch.streaming.ViewerConnectionState
+import com.sb.arsketch.streaming.api.ViewerConnectionState
 
 @Composable
 fun ViewerScreen(

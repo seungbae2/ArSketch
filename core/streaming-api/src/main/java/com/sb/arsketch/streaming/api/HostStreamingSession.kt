@@ -3,7 +3,6 @@ package com.sb.arsketch.streaming.api
 import android.opengl.GLSurfaceView
 import com.sb.arsketch.domain.model.RemoteTouchEvent
 import com.sb.arsketch.domain.model.StrokeEvent
-import com.sb.arsketch.streaming.StreamingState
 import kotlinx.coroutines.flow.StateFlow
 
 interface HostStreamingSession {

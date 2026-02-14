@@ -1,24 +1,16 @@
 plugins {
-    alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
 }
 
-android {
-    namespace = "com.sb.arsketch.core.domain"
-    compileSdk = 36
-    defaultConfig { minSdk = 26 }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-    kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11) } }
+kotlin {
+    jvmToolchain(11)
 }
 
 dependencies {
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.hilt.android)
+    implementation(libs.hilt.core)
     ksp(libs.hilt.compiler)
 
     testImplementation(libs.junit)

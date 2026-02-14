@@ -10,6 +10,7 @@ import com.sb.arsketch.domain.model.RemoteTouchEvent
 import com.sb.arsketch.domain.model.StrokeEvent
 import com.sb.arsketch.streaming.api.HostStreamingController
 import com.sb.arsketch.streaming.api.HostStreamingSession
+import com.sb.arsketch.streaming.api.StreamingState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

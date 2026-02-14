@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.sb.arsketch.streaming.api.StreamingConstants
+import com.sb.arsketch.streaming.api.ViewerConnectionState
 import com.sb.arsketch.streaming.api.ViewerStreamingClient
 import timber.log.Timber
 

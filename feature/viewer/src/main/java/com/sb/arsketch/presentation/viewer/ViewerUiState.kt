@@ -1,7 +1,7 @@
 package com.sb.arsketch.presentation.viewer
 
 import com.sb.arsketch.domain.model.ViewerStroke
-import com.sb.arsketch.streaming.ViewerConnectionState
+import com.sb.arsketch.streaming.api.ViewerConnectionState
 
 data class ViewerUiState(
     val connectionState: ViewerConnectionState = ViewerConnectionState.Disconnected,

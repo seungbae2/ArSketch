@@ -17,7 +17,7 @@ import com.sb.arsketch.domain.usecase.stroke.ClearAllStrokesUseCase
 import com.sb.arsketch.domain.usecase.stroke.CreateStrokeUseCase
 import com.sb.arsketch.domain.usecase.stroke.RedoStrokeUseCase
 import com.sb.arsketch.domain.usecase.stroke.UndoStrokeUseCase
-import com.sb.arsketch.streaming.StreamingState
+import com.sb.arsketch.streaming.api.StreamingState
 import com.sb.arsketch.streaming.api.HostStreamingSession
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel

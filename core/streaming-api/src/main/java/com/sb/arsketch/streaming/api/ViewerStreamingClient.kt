@@ -1,6 +1,5 @@
 package com.sb.arsketch.streaming.api
 
-import com.sb.arsketch.streaming.ViewerConnectionState
 import kotlinx.coroutines.flow.StateFlow
 
 interface ViewerStreamingClient {

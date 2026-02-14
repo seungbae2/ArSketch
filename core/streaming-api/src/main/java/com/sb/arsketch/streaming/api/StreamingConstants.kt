@@ -1,4 +1,4 @@
-package com.sb.arsketch.streaming
+package com.sb.arsketch.streaming.api
 
 object StreamingConstants {
     const val DATA_TOPIC_AR_DRAWING = "ar_drawing"

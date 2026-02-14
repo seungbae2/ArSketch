@@ -3,7 +3,7 @@ package com.sb.arsketch.presentation.viewer
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sb.arsketch.streaming.ViewerConnectionState
+import com.sb.arsketch.streaming.api.ViewerConnectionState
 import com.sb.arsketch.streaming.api.StrokeEventSource
 import com.sb.arsketch.streaming.api.ViewerStreamingClient
 import dagger.hilt.android.lifecycle.HiltViewModel
