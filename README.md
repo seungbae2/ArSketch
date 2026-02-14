@@ -20,15 +20,46 @@ Draw on surfaces or in mid-air using ARCore, and share your creation live with a
 
 | Layer | Technology |
 |-------|-----------|
-| Android UI | Kotlin, Jetpack Compose, Material3 |
+| Android UI | Kotlin 2.2, Jetpack Compose (BOM 2026.01), Material3 |
 | AR | ARCore 1.52 |
 | Streaming | LiveKit Android SDK 2.23.3 (WebRTC SFU) |
 | DI | Hilt 2.56 |
-| Architecture | Clean Architecture, MVVM |
+| Architecture | Multi-module Clean Architecture, MVVM |
+| Navigation | Navigation Compose 2.9 |
 | Web Viewer | TypeScript, Vite, livekit-client |
-| Serialization | kotlinx-serialization (JSON over DataChannel) |
+| Serialization | kotlinx-serialization 1.10 (JSON over DataChannel) |
 
 ## Architecture
+
+### Multi-Module Structure
+
+```
+:app                        ← Application shell, DI wiring, Navigation
+├── :core:domain            ← Domain models, UseCases (pure Kotlin)
+├── :core:ar                ← ARCore session, renderer, drawing controller
+├── :core:streaming-api     ← Streaming interfaces & state definitions
+├── :core:streaming         ← LiveKit implementation (foreground service)
+├── :core:ui                ← Compose theme (colors, typography)
+├── :feature:connect        ← Connection screen (URL + token input)
+├── :feature:host           ← Host screen (AR drawing + streaming)
+└── :feature:viewer         ← Viewer screen (remote video + stroke overlay)
+```
+
+### Module Dependency Graph
+
+```
+feature:host ──┐
+feature:viewer ┼──▶ core:domain
+feature:connect┘    core:streaming-api
+                    core:ui
+
+core:streaming ───▶ core:streaming-api, core:domain
+core:ar ───────────▶ core:domain
+
+app ───────────────▶ all modules (assembly + DI)
+```
+
+### System Architecture
 
 ```
 ┌─────────────────── Android Host ───────────────────┐
@@ -36,7 +67,7 @@ Draw on surfaces or in mid-air using ARCore, and share your creation live with a
 │  Presentation          Domain           Streaming   │
 │  ┌───────────┐   ┌──────────────┐   ┌────────────┐ │
 │  │HostScreen │──▶│ UseCases     │   │ LiveKit    │ │
-│  │ViewModel  │   │ Models       │   │ Room       │ │
+│  │ ViewModel │   │ Models       │   │ Room       │ │
 │  │ Compose UI│   │ StrokeEvent  │   │            │ │
 │  └───────────┘   └──────────────┘   └─────┬──────┘ │
 │        │                                   │        │
@@ -175,33 +206,105 @@ npm run dev
 
 ```
 ArSketch/
-├── app/src/main/java/com/sb/arsketch/
-│   ├── ar/
-│   │   ├── core/           # ARSessionManager, DrawingController, AnchorManager
-│   │   ├── renderer/       # ARRenderer, StrokeRenderer, PlaneRenderer
-│   │   ├── util/           # TouchToWorldConverter, AirDrawingProjector
-│   │   └── geometry/       # LineStripMesh
-│   ├── domain/
-│   │   ├── model/          # Point3D, Stroke, BrushSettings, StrokeEvent
-│   │   └── usecase/stroke/ # Create, AddPoint, Undo, Redo, ClearAll
-│   ├── presentation/
-│   │   ├── host/           # Host screen (AR drawing + streaming)
-│   │   ├── viewer/         # Viewer screen (receive strokes)
-│   │   ├── connect/        # Connection screen (URL + token input)
-│   │   └── navigation/     # NavGraph
-│   ├── streaming/          # HybridStreamingService, ARFrameCapturer
-│   └── ui/theme/           # Compose theme
-├── web-viewer/
+├── app/                                    # Application shell
+│   └── src/main/java/com/sb/arsketch/
+│       ├── ArSketchApplication.kt          # Hilt application
+│       ├── MainActivity.kt                 # Single activity entry point
+│       ├── di/
+│       │   ├── AppConfigModule.kt          # App-level Hilt config
+│       │   └── StreamingModule.kt          # Streaming DI bindings
+│       └── presentation/navigation/
+│           └── ArSketchNavGraph.kt         # Screen navigation
+│
+├── core/
+│   ├── domain/                             # Pure Kotlin domain layer
+│   │   └── src/main/java/.../domain/
+│   │       ├── model/                      # Point3D, Stroke, BrushSettings, StrokeEvent,
+│   │       │                               # DrawingMode, RoomConnectionConfig, RemoteTouchEvent
+│   │       └── usecase/stroke/             # Create, AddPoint, Undo, Redo, ClearAll
+│   │
+│   ├── ar/                                 # ARCore integration
+│   │   └── src/main/java/.../ar/
+│   │       ├── core/                       # ARSessionManager, DrawingController,
+│   │       │                               # AnchorManager, ARGLSurfaceView
+│   │       ├── renderer/                   # ARRenderer, StrokeRenderer, PlaneRenderer,
+│   │       │                               # BackgroundRenderer, ShaderUtil
+│   │       ├── util/                       # TouchToWorldConverter, AirDrawingProjector,
+│   │       │                               # HitTestHelper
+│   │       └── geometry/                   # LineStripMesh
+│   │
+│   ├── streaming-api/                      # Streaming abstractions
+│   │   └── src/main/java/.../streaming/
+│   │       ├── api/                        # HostStreamingController, ViewerStreamingClient,
+│   │       │                               # StrokeEventSource interfaces
+│   │       ├── StreamingState.kt           # Connection state models
+│   │       ├── ViewerConnectionState.kt
+│   │       └── StreamingConstants.kt
+│   │
+│   ├── streaming/                          # LiveKit implementation
+│   │   └── src/main/java/.../streaming/
+│   │       ├── HybridStreamingService.kt   # Foreground service (video + data)
+│   │       ├── ARFrameCapturer.kt          # PixelCopy → BitmapFrameCapturer
+│   │       ├── StrokeEventReceiver.kt      # DataChannel stroke parsing
+│   │       └── ViewerConnectionManager.kt  # Viewer-side LiveKit connection
+│   │
+│   └── ui/                                 # Compose theme
+│       └── src/main/java/.../ui/theme/
+│           ├── Color.kt
+│           ├── Theme.kt
+│           └── Type.kt
+│
+├── feature/
+│   ├── connect/                            # Connection screen
+│   │   └── src/main/java/.../connect/
+│   │       ├── ConnectScreen.kt            # URL + token input UI
+│   │       ├── ConnectRoute.kt             # Navigation wiring
+│   │       ├── ConnectViewModel.kt
+│   │       ├── ConnectUiState.kt
+│   │       ├── ConnectAction.kt
+│   │       └── ConnectEvent.kt
+│   │
+│   ├── host/                               # Host screen (AR drawing)
+│   │   └── src/main/java/.../host/
+│   │       ├── HostScreen.kt               # AR view + brush toolbar
+│   │       ├── HostRoute.kt                # Navigation wiring
+│   │       ├── HostViewModel.kt
+│   │       ├── HostUiState.kt
+│   │       ├── HostAction.kt
+│   │       ├── HostEvent.kt
+│   │       └── component/                  # ColorPicker, ThicknessSelector,
+│   │                                       # DepthSlider, DrawingModeToggle,
+│   │                                       # ActionToolbar, BrushToolbar,
+│   │                                       # TrackingStatusIndicator,
+│   │                                       # PlaneVisibilityToggle
+│   │
+│   └── viewer/                             # Viewer screen (remote video)
+│       └── src/main/java/.../viewer/
+│           ├── ViewerScreen.kt             # Video + stroke overlay
+│           ├── ViewerRoute.kt              # Navigation wiring
+│           ├── ViewerViewModel.kt
+│           ├── ViewerUiState.kt
+│           ├── ViewerAction.kt
+│           ├── ViewerEvent.kt
+│           └── component/
+│               └── StrokeOverlay.kt
+│
+├── web-viewer/                             # Browser-based viewer
 │   ├── src/
-│   │   ├── main.ts              # Entry point
-│   │   ├── livekit-connection.ts # Room connection, subscriptions
-│   │   ├── stroke-processor.ts   # Parse stroke events
-│   │   ├── stroke-renderer.ts    # Canvas rendering
-│   │   ├── drawing-input.ts      # Mouse/touch input
-│   │   └── types.ts              # TypeScript interfaces
+│   │   ├── main.ts                         # Entry point
+│   │   ├── livekit-connection.ts           # Room connection, subscriptions
+│   │   ├── stroke-processor.ts             # Parse stroke events
+│   │   ├── stroke-renderer.ts              # Canvas rendering
+│   │   ├── drawing-input.ts                # Mouse/touch input
+│   │   ├── remote-touch.ts                 # Touch event forwarding
+│   │   ├── color-utils.ts                  # ARGB ↔ CSS conversion
+│   │   ├── ui.ts                           # UI controls
+│   │   └── types.ts                        # TypeScript interfaces
 │   ├── index.html
 │   └── package.json
-├── gradle/libs.versions.toml    # Dependency versions
+│
+├── gradle/libs.versions.toml              # Centralized dependency versions
+├── settings.gradle.kts                    # Module declarations
 └── CLAUDE.md
 ```
 
