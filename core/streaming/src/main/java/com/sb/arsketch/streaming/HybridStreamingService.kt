@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import com.sb.arsketch.streaming.api.HostStreamingController
 import timber.log.Timber
 
 /**
@@ -36,7 +37,7 @@ import timber.log.Timber
  * AR 렌더링 영상은 ARFrameCapturer(PixelCopy)를 통해 LiveKit VideoTrack으로,
  * AR 드로잉 데이터는 DataChannel(JSON)로 전송합니다.
  */
-class HybridStreamingService : Service() {
+class HybridStreamingService : Service(), HostStreamingController {
 
     private val binder = LocalBinder()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -48,18 +49,18 @@ class HybridStreamingService : Service() {
     private val json = Json { ignoreUnknownKeys = true }
 
     // 리모트 터치 이벤트 수신 콜백
-    var onRemoteTouchReceived: ((RemoteTouchEvent) -> Unit)? = null
+    override var onRemoteTouchReceived: ((RemoteTouchEvent) -> Unit)? = null
 
     // 스트리밍 상태
     private val _streamingState = MutableStateFlow<StreamingState>(StreamingState.Idle)
-    val streamingState: StateFlow<StreamingState> = _streamingState.asStateFlow()
+    override val streamingState: StateFlow<StreamingState> = _streamingState.asStateFlow()
 
     // 참가자 수
     private val _participantCount = MutableStateFlow(0)
-    val participantCount: StateFlow<Int> = _participantCount.asStateFlow()
+    override val participantCount: StateFlow<Int> = _participantCount.asStateFlow()
 
     inner class LocalBinder : Binder() {
-        fun getService(): HybridStreamingService = this@HybridStreamingService
+        fun getController(): HostStreamingController = this@HybridStreamingService
     }
 
     override fun onBind(intent: Intent): IBinder = binder
@@ -91,7 +92,7 @@ class HybridStreamingService : Service() {
      * @param url LiveKit 서버 URL
      * @param token 인증 토큰
      */
-    fun connect(
+    override fun connect(
         url: String,
         token: String,
         onSuccess: () -> Unit,
@@ -140,7 +141,7 @@ class HybridStreamingService : Service() {
      * Room이 이미 연결되어 있으면 즉시 캡처를 시작하고,
      * 아직 연결 전이면 연결 완료 시 자동으로 시작합니다.
      */
-    fun setARSurfaceView(surfaceView: GLSurfaceView) {
+    override fun setARSurfaceView(surfaceView: GLSurfaceView) {
         Timber.d("setARSurfaceView called, view: ${surfaceView.width}x${surfaceView.height}")
         pendingSurfaceView = surfaceView
         tryStartCapture()
@@ -211,7 +212,7 @@ class HybridStreamingService : Service() {
      *
      * @param event 전송할 StrokeEvent
      */
-    fun publishStrokeEvent(event: StrokeEvent) {
+    override fun publishStrokeEvent(event: StrokeEvent) {
         if (_streamingState.value !is StreamingState.Streaming) return
 
         serviceScope.launch {
@@ -233,7 +234,7 @@ class HybridStreamingService : Service() {
     /**
      * 연결 해제 및 리소스 정리
      */
-    fun disconnect() {
+    override fun disconnect() {
         Timber.d("Disconnecting")
         serviceScope.launch {
             cleanup()

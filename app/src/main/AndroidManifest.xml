@@ -35,10 +35,6 @@
             </intent-filter>
         </activity>
 
-        <service
-            android:name=".streaming.HybridStreamingService"
-            android:foregroundServiceType="camera"
-            android:exported="false" />
     </application>
 
 </manifest>

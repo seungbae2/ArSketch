@@ -6,7 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.kotlin.serialization)
+
 }
 
 // Read LiveKit credentials from local.properties (gitignored)
@@ -107,10 +107,4 @@ dependencies {
     // Timber
     implementation(libs.timber)
 
-    // Serialization
-    implementation(libs.kotlinx.serialization.json)
-
-    // LiveKit
-    implementation(libs.livekit.android)
-    implementation(libs.livekit.components.compose)
 }

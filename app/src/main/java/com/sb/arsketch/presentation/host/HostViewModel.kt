@@ -77,7 +77,7 @@ class HostViewModel @Inject constructor(
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             val binder = service as HybridStreamingService.LocalBinder
-            streamingService = binder.getService()
+            streamingService = binder.getController() as HybridStreamingService
             isServiceBound = true
             Timber.d("HybridStreamingService connected")
 

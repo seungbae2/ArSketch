@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.sb.arsketch.streaming.api.ViewerStreamingClient
 import timber.log.Timber
 
 /**
@@ -25,19 +26,19 @@ import timber.log.Timber
 class ViewerConnectionManager(
     private val context: Context,
     private val strokeEventReceiver: StrokeEventReceiver
-) {
+) : ViewerStreamingClient {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private var room: Room? = null
     private var isDestroyed = false
 
     private val _connectionState = MutableStateFlow<ViewerConnectionState>(ViewerConnectionState.Disconnected)
-    val connectionState: StateFlow<ViewerConnectionState> = _connectionState.asStateFlow()
+    override val connectionState: StateFlow<ViewerConnectionState> = _connectionState.asStateFlow()
 
     private val _participantCount = MutableStateFlow(0)
-    val participantCount: StateFlow<Int> = _participantCount.asStateFlow()
+    override val participantCount: StateFlow<Int> = _participantCount.asStateFlow()
 
-    fun connect(serverUrl: String, token: String) {
+    override fun connect(serverUrl: String, token: String) {
         if (_connectionState.value !is ViewerConnectionState.Disconnected) return
         if (isDestroyed) return
 
@@ -95,7 +96,7 @@ class ViewerConnectionManager(
         _participantCount.value = (room?.remoteParticipants?.size ?: 0) + 1
     }
 
-    fun disconnect() {
+    override fun disconnect() {
         if (isDestroyed) return
         scope.launch {
             cleanup()
@@ -113,7 +114,7 @@ class ViewerConnectionManager(
         strokeEventReceiver.clear()
     }
 
-    fun destroy() {
+    override fun destroy() {
         if (isDestroyed) return
         isDestroyed = true
         try {

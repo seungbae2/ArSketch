@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
+import com.sb.arsketch.streaming.api.StrokeEventSource
 import timber.log.Timber
 
 /**
@@ -15,7 +16,7 @@ import timber.log.Timber
  * 3D Point3D → 2D ViewerPoint 변환은 단순 x,y 투영 사용 (추후 개선 가능).
  * 모든 mutable state 접근은 lock으로 동기화됩니다.
  */
-class StrokeEventReceiver {
+class StrokeEventReceiver : StrokeEventSource {
 
     private val json = Json { ignoreUnknownKeys = true }
     private val lock = Any()
@@ -28,7 +29,7 @@ class StrokeEventReceiver {
     private val deletedStrokes = mutableMapOf<String, ViewerStroke>()
 
     private val _strokes = MutableStateFlow<List<ViewerStroke>>(emptyList())
-    val strokes: StateFlow<List<ViewerStroke>> = _strokes.asStateFlow()
+    override val strokes: StateFlow<List<ViewerStroke>> = _strokes.asStateFlow()
 
     private data class MutableViewerStroke(
         val id: String,
@@ -114,7 +115,7 @@ class StrokeEventReceiver {
         return completedStrokes.toList() + activeList
     }
 
-    fun clear() {
+    override fun clear() {
         synchronized(lock) {
             activeStrokes.clear()
             completedStrokes.clear()
