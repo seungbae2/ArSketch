@@ -57,6 +57,16 @@ android {
 }
 
 dependencies {
+    // Modules
+    implementation(project(":core:domain"))
+    implementation(project(":core:ar"))
+    implementation(project(":core:streaming-api"))
+    implementation(project(":core:streaming"))
+    implementation(project(":core:ui"))
+    implementation(project(":feature:host"))
+    implementation(project(":feature:viewer"))
+    implementation(project(":feature:connect"))
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
