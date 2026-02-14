@@ -21,7 +21,6 @@ dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:ar"))
     implementation(project(":core:streaming-api"))
-    implementation(project(":core:streaming"))
     implementation(project(":core:ui"))
 
     implementation(platform(libs.androidx.compose.bom))

@@ -1,11 +1,6 @@
 package com.sb.arsketch.presentation.host
 
-import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
-import android.content.ServiceConnection
 import android.opengl.GLSurfaceView
-import android.os.IBinder
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -22,11 +17,9 @@ import com.sb.arsketch.domain.usecase.stroke.ClearAllStrokesUseCase
 import com.sb.arsketch.domain.usecase.stroke.CreateStrokeUseCase
 import com.sb.arsketch.domain.usecase.stroke.RedoStrokeUseCase
 import com.sb.arsketch.domain.usecase.stroke.UndoStrokeUseCase
-import com.sb.arsketch.streaming.HybridStreamingService
 import com.sb.arsketch.streaming.StreamingState
-import com.sb.arsketch.streaming.api.HostStreamingController
+import com.sb.arsketch.streaming.api.HostStreamingSession
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,11 +31,10 @@ import timber.log.Timber
 import java.net.URLDecoder
 import javax.inject.Inject
 
-@Suppress("StaticFieldLeak") // Application context injected by Hilt, no leak
 @HiltViewModel
 class HostViewModel @Inject constructor(
-    @param:ApplicationContext private val context: Context,
     savedStateHandle: SavedStateHandle,
+    private val streamingSession: HostStreamingSession,
     private val drawingController: DrawingController,
     private val createStrokeUseCase: CreateStrokeUseCase,
     private val addPointToStrokeUseCase: AddPointToStrokeUseCase,
@@ -64,45 +56,14 @@ class HostViewModel @Inject constructor(
     private val _events = Channel<HostEvent>(Channel.BUFFERED)
     val events = _events.receiveAsFlow()
 
-    // Streaming controller
-    private var streamingController: HostStreamingController? = null
-    private var isServiceBound = false
-
-    // AR surface view (for frame capture)
-    private var arSurfaceView: GLSurfaceView? = null
-
     // DataChannel throttling
     private var lastEventTime = 0L
     private val eventThrottleMs = 16L
 
-    private val serviceConnection = object : ServiceConnection {
-        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            val binder = service as HybridStreamingService.LocalBinder
-            streamingController = binder.getController()
-            isServiceBound = true
-            Timber.d("HybridStreamingService connected")
-
-            // GLSurfaceView가 이미 있으면 서비스에 전달
-            arSurfaceView?.let { streamingController?.setARSurfaceView(it) }
-
-            // 리모트 터치 이벤트 수신 콜백 등록
-            streamingController?.onRemoteTouchReceived = { event ->
-                handleRemoteTouchEvent(event)
-            }
-
-            startStreamingWithService()
-            observeStreamingState()
-        }
-
-        override fun onServiceDisconnected(name: ComponentName?) {
-            streamingController = null
-            isServiceBound = false
-            _uiState.update { it.copy(streamingState = StreamingUiState.Idle) }
-        }
-    }
-
     init {
-        // Auto-connect on init
+        streamingSession.setRemoteTouchHandler { event -> handleRemoteTouchEvent(event) }
+        observeStreamingState()
+
         if (serverUrl.isNotBlank() && token.isNotBlank()) {
             startStreaming()
         }
@@ -315,8 +276,7 @@ class HostViewModel @Inject constructor(
      * 서비스에 뷰를 전달하면, 서비스가 Room 연결과 뷰 모두 준비될 때 캡처를 시작합니다.
      */
     fun setGLSurfaceView(surfaceView: GLSurfaceView) {
-        arSurfaceView = surfaceView
-        streamingController?.setARSurfaceView(surfaceView)
+        streamingSession.setARSurfaceView(surfaceView)
     }
 
     // ========== Streaming ==========
@@ -324,13 +284,7 @@ class HostViewModel @Inject constructor(
     private fun startStreaming() {
         _uiState.update { it.copy(streamingState = StreamingUiState.Connecting) }
 
-        val serviceIntent = Intent(context, HybridStreamingService::class.java)
-        context.startForegroundService(serviceIntent)
-        context.bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
-    }
-
-    private fun startStreamingWithService() {
-        streamingController?.connect(
+        streamingSession.connect(
             url = serverUrl,
             token = token,
             onSuccess = {
@@ -348,7 +302,7 @@ class HostViewModel @Inject constructor(
 
     private fun observeStreamingState() {
         viewModelScope.launch {
-            streamingController?.streamingState?.collect { state ->
+            streamingSession.streamingState.collect { state ->
                 val uiStreamingState = when (state) {
                     is StreamingState.Idle -> StreamingUiState.Idle
                     is StreamingState.Connecting -> StreamingUiState.Connecting
@@ -359,7 +313,7 @@ class HostViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            streamingController?.participantCount?.collect { count ->
+            streamingSession.participantCount.collect { count ->
                 _uiState.update { it.copy(participantCount = count) }
             }
         }
@@ -367,24 +321,12 @@ class HostViewModel @Inject constructor(
 
     private fun publishStrokeEvent(event: StrokeEvent) {
         if (_uiState.value.streamingState is StreamingUiState.Streaming) {
-            streamingController?.publishStrokeEvent(event)
+            streamingSession.publishStrokeEvent(event)
         }
     }
 
     private fun disconnect() {
-        streamingController?.onRemoteTouchReceived = null
-        streamingController?.disconnect()
-
-        if (isServiceBound) {
-            try {
-                context.unbindService(serviceConnection)
-            } catch (e: Exception) {
-                Timber.e(e, "Error unbinding service")
-            }
-            isServiceBound = false
-        }
-
-        streamingController = null
+        streamingSession.disconnect()
         _uiState.update { it.copy(streamingState = StreamingUiState.Idle) }
         viewModelScope.launch { _events.send(HostEvent.Disconnected) }
     }
