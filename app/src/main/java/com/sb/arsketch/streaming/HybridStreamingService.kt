@@ -298,13 +298,3 @@ class HybridStreamingService : Service() {
         private const val NOTIFICATION_ID = 1003
     }
 }
-
-/**
- * Hybrid 스트리밍 상태
- */
-sealed class StreamingState {
-    data object Idle : StreamingState()
-    data object Connecting : StreamingState()
-    data class Streaming(val roomName: String) : StreamingState()
-    data class Error(val message: String) : StreamingState()
-}
