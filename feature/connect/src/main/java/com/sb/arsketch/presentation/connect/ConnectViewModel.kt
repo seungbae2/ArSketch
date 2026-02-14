@@ -12,11 +12,17 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import javax.inject.Named
 
 @HiltViewModel
-class ConnectViewModel @Inject constructor() : ViewModel() {
+class ConnectViewModel @Inject constructor(
+    @Named("defaultServerUrl") defaultServerUrl: String,
+    @Named("defaultToken") defaultToken: String
+) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(ConnectUiState())
+    private val _uiState = MutableStateFlow(
+        ConnectUiState(serverUrl = defaultServerUrl, token = defaultToken)
+    )
     val uiState: StateFlow<ConnectUiState> = _uiState.asStateFlow()
 
     private val _events = Channel<ConnectEvent>(Channel.BUFFERED)
