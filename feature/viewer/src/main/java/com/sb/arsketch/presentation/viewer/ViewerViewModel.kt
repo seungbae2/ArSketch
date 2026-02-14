@@ -1,14 +1,12 @@
 package com.sb.arsketch.presentation.viewer
 
-import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sb.arsketch.streaming.StrokeEventReceiver
-import com.sb.arsketch.streaming.ViewerConnectionManager
 import com.sb.arsketch.streaming.ViewerConnectionState
+import com.sb.arsketch.streaming.api.StrokeEventSource
+import com.sb.arsketch.streaming.api.ViewerStreamingClient
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,11 +17,11 @@ import kotlinx.coroutines.launch
 import java.net.URLDecoder
 import javax.inject.Inject
 
-@Suppress("StaticFieldLeak") // Application context injected by Hilt, no leak
 @HiltViewModel
 class ViewerViewModel @Inject constructor(
-    @param:ApplicationContext private val context: Context,
-    savedStateHandle: SavedStateHandle
+    savedStateHandle: SavedStateHandle,
+    private val connectionManager: ViewerStreamingClient,
+    private val strokeEventSource: StrokeEventSource
 ) : ViewModel() {
 
     private val serverUrl: String = URLDecoder.decode(
@@ -32,9 +30,6 @@ class ViewerViewModel @Inject constructor(
     private val token: String = URLDecoder.decode(
         savedStateHandle["token"] ?: "", "UTF-8"
     )
-
-    private val strokeEventReceiver = StrokeEventReceiver()
-    private val connectionManager = ViewerConnectionManager(context, strokeEventReceiver)
 
     private val _uiState = MutableStateFlow(ViewerUiState())
     val uiState: StateFlow<ViewerUiState> = _uiState.asStateFlow()
@@ -70,7 +65,7 @@ class ViewerViewModel @Inject constructor(
 
     private fun observeStrokes() {
         viewModelScope.launch {
-            strokeEventReceiver.strokes.collect { strokes ->
+            strokeEventSource.strokes.collect { strokes ->
                 _uiState.update { it.copy(strokes = strokes) }
             }
         }
