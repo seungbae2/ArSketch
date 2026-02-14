@@ -99,8 +99,8 @@ app ──────────────▶ all modules (assembly + DI)
 | `app` | `app/src/main/java/com/sb/arsketch/` | Application, MainActivity, DI modules, NavGraph |
 | `core:domain` | `core/domain/src/main/java/com/sb/arsketch/domain/` | `model/` (Point3D, Stroke, StrokeEvent, BrushSettings, DrawingMode) + `usecase/stroke/` |
 | `core:ar` | `core/ar/src/main/java/com/sb/arsketch/ar/` | `core/` (ARSessionManager, DrawingController) + `renderer/` + `util/` + `geometry/` |
-| `core:streaming-api` | `core/streaming-api/src/main/java/com/sb/arsketch/streaming/` | `api/` interfaces (HostStreamingController, ViewerStreamingClient) + state models |
-| `core:streaming` | `core/streaming/src/main/java/com/sb/arsketch/streaming/` | HybridStreamingService, ARFrameCapturer, ViewerConnectionManager |
+| `core:streaming-api` | `core/streaming-api/src/main/java/com/sb/arsketch/streaming/` | `api/` interfaces (HostStreamingController, HostStreamingSession, ViewerStreamingClient) + state models |
+| `core:streaming` | `core/streaming/src/main/java/com/sb/arsketch/streaming/` | HybridStreamingService, HostStreamingSessionImpl, ARFrameCapturer, ViewerConnectionManager |
 | `core:ui` | `core/ui/src/main/java/com/sb/arsketch/ui/theme/` | Color, Theme, Type |
 | `feature:connect` | `feature/connect/src/main/java/com/sb/arsketch/presentation/connect/` | ConnectScreen/Route/ViewModel/UiState/Action/Event |
 | `feature:host` | `feature/host/src/main/java/com/sb/arsketch/presentation/host/` | HostScreen/Route/ViewModel/UiState/Action/Event + `component/` |

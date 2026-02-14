@@ -235,8 +235,8 @@ ArSketch/
 │   │
 │   ├── streaming-api/                      # Streaming abstractions
 │   │   └── src/main/java/.../streaming/
-│   │       ├── api/                        # HostStreamingController, ViewerStreamingClient,
-│   │       │                               # StrokeEventSource interfaces
+│   │       ├── api/                        # HostStreamingController, HostStreamingSession,
+│   │       │                               # ViewerStreamingClient, StrokeEventSource interfaces
 │   │       ├── StreamingState.kt           # Connection state models
 │   │       ├── ViewerConnectionState.kt
 │   │       └── StreamingConstants.kt
@@ -244,6 +244,7 @@ ArSketch/
 │   ├── streaming/                          # LiveKit implementation
 │   │   └── src/main/java/.../streaming/
 │   │       ├── HybridStreamingService.kt   # Foreground service (video + data)
+│   │       ├── HostStreamingSessionImpl.kt # Service binding lifecycle manager
 │   │       ├── ARFrameCapturer.kt          # PixelCopy → BitmapFrameCapturer
 │   │       ├── StrokeEventReceiver.kt      # DataChannel stroke parsing
 │   │       └── ViewerConnectionManager.kt  # Viewer-side LiveKit connection
