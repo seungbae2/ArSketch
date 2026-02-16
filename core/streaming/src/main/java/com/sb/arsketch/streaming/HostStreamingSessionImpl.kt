@@ -4,109 +4,132 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.opengl.GLSurfaceView
 import android.os.IBinder
+import android.view.SurfaceView
 import com.sb.arsketch.domain.model.RemoteTouchEvent
 import com.sb.arsketch.domain.model.StrokeEvent
-import com.sb.arsketch.streaming.api.HostStreamingController
-import com.sb.arsketch.streaming.api.HostStreamingSession
 import com.sb.arsketch.streaming.api.ConnectionState
+import com.sb.arsketch.streaming.api.HostStreamingSession
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import timber.log.Timber
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 class HostStreamingSessionImpl(
     private val context: Context
 ) : HostStreamingSession {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-    private var controller: HostStreamingController? = null
+    private var service: HybridStreamingService? = null
     private var isServiceBound = false
-    private var pendingSurfaceView: GLSurfaceView? = null
-    private var remoteTouchHandler: ((RemoteTouchEvent) -> Unit)? = null
+    private var pendingSurfaceView: SurfaceView? = null
 
-    private val _streamingState = MutableStateFlow<ConnectionState>(ConnectionState.Idle)
-    override val streamingState: StateFlow<ConnectionState> = _streamingState.asStateFlow()
+    private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Idle)
+    override val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
 
     private val _participantCount = MutableStateFlow(0)
     override val participantCount: StateFlow<Int> = _participantCount.asStateFlow()
 
-    private var pendingConnect: PendingConnect? = null
+    private val _remoteTouchEvents = MutableSharedFlow<RemoteTouchEvent>(extraBufferCapacity = 64)
+    override val remoteTouchEvents: Flow<RemoteTouchEvent> = _remoteTouchEvents.asSharedFlow()
+
+    private var pendingConnectContinuation: CancellableContinuation<Unit>? = null
+    private var pendingConnectParams: ConnectParams? = null
 
     private val serviceConnection = object : ServiceConnection {
-        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            val binder = service as HybridStreamingService.LocalBinder
-            controller = binder.getController()
+        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+            val localBinder = binder as HybridStreamingService.LocalBinder
+            service = localBinder.getService()
             isServiceBound = true
             Timber.d("HybridStreamingService connected")
 
-            pendingSurfaceView?.let { controller?.setARSurfaceView(it) }
+            pendingSurfaceView?.let { service?.setARSurfaceView(it) }
+            observeServiceState()
+            observeRemoteTouchEvents()
 
-            controller?.onRemoteTouchReceived = { event ->
-                remoteTouchHandler?.invoke(event)
-            }
-
-            observeControllerState()
-
-            pendingConnect?.let { pending ->
-                controller?.connect(
-                    url = pending.url,
-                    token = pending.token,
-                    onSuccess = pending.onSuccess,
-                    onError = pending.onError
-                )
-                pendingConnect = null
+            pendingConnectContinuation?.let { continuation ->
+                scope.launch {
+                    try {
+                        service?.connect(
+                            url = pendingConnectParams!!.url,
+                            token = pendingConnectParams!!.token
+                        )
+                        continuation.resume(Unit)
+                    } catch (e: Exception) {
+                        continuation.resumeWithException(e)
+                    }
+                    pendingConnectContinuation = null
+                    pendingConnectParams = null
+                }
             }
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
-            controller = null
+            service = null
             isServiceBound = false
-            _streamingState.value = ConnectionState.Idle
+            _connectionState.value = ConnectionState.Idle
         }
     }
 
-    override fun connect(
-        url: String,
-        token: String,
-        onSuccess: () -> Unit,
-        onError: (Exception) -> Unit
-    ) {
-        _streamingState.value = ConnectionState.Connecting
-        pendingConnect = PendingConnect(url, token, onSuccess, onError)
+    override suspend fun connect(url: String, token: String) {
+        _connectionState.value = ConnectionState.Connecting
 
-        val serviceIntent = Intent(context, HybridStreamingService::class.java)
-        context.startForegroundService(serviceIntent)
-        context.bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
+        return suspendCancellableCoroutine { continuation ->
+            pendingConnectContinuation = continuation
+            pendingConnectParams = ConnectParams(url, token)
+
+            val serviceIntent = Intent(context, HybridStreamingService::class.java)
+            context.startForegroundService(serviceIntent)
+            context.bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
+
+            continuation.invokeOnCancellation {
+                pendingConnectContinuation = null
+                pendingConnectParams = null
+                service?.disconnect()
+                unbindServiceSafely()
+                service = null
+                _connectionState.value = ConnectionState.Idle
+            }
+        }
     }
 
-    override fun setARSurfaceView(surfaceView: GLSurfaceView) {
+    override fun setARSurfaceView(surfaceView: SurfaceView) {
         pendingSurfaceView = surfaceView
-        controller?.setARSurfaceView(surfaceView)
+        service?.setARSurfaceView(surfaceView)
     }
 
     override fun publishStrokeEvent(event: StrokeEvent) {
-        controller?.publishStrokeEvent(event)
-    }
-
-    override fun setRemoteTouchHandler(handler: ((RemoteTouchEvent) -> Unit)?) {
-        remoteTouchHandler = handler
-        controller?.onRemoteTouchReceived = handler?.let { h ->
-            { event: RemoteTouchEvent -> h(event) }
-        }
+        service?.publishStrokeEvent(event)
     }
 
     override fun disconnect() {
-        controller?.onRemoteTouchReceived = null
-        controller?.disconnect()
+        service?.disconnect()
+        unbindServiceSafely()
 
+        service = null
+        pendingConnectContinuation = null
+        pendingConnectParams = null
+        _connectionState.value = ConnectionState.Idle
+        _participantCount.value = 0
+
+        scope.cancel()
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    }
+
+    private fun unbindServiceSafely() {
         if (isServiceBound) {
             try {
                 context.unbindService(serviceConnection)
@@ -115,31 +138,28 @@ class HostStreamingSessionImpl(
             }
             isServiceBound = false
         }
-
-        controller = null
-        pendingConnect = null
-        _streamingState.value = ConnectionState.Idle
-        _participantCount.value = 0
-        scope.cancel()
     }
 
-    private fun observeControllerState() {
+    private fun observeServiceState() {
         scope.launch {
-            controller?.streamingState?.collect { state ->
-                _streamingState.value = state
+            service?.connectionState?.collect { state ->
+                _connectionState.value = state
             }
         }
         scope.launch {
-            controller?.participantCount?.collect { count ->
+            service?.participantCount?.collect { count ->
                 _participantCount.value = count
             }
         }
     }
 
-    private data class PendingConnect(
-        val url: String,
-        val token: String,
-        val onSuccess: () -> Unit,
-        val onError: (Exception) -> Unit
-    )
+    private fun observeRemoteTouchEvents() {
+        scope.launch {
+            service?.remoteTouchEvents?.collect { event ->
+                _remoteTouchEvents.tryEmit(event)
+            }
+        }
+    }
+
+    private data class ConnectParams(val url: String, val token: String)
 }

@@ -185,7 +185,7 @@ fun HostRoute(
 
                 view.post {
                     drawingController.setViewportSize(view.width, view.height)
-                    viewModel.setGLSurfaceView(view)
+                    viewModel.setSurfaceView(view)
                 }
 
                 // 화면 회전 등으로 뷰 크기가 바뀌면 캡처 재시작
@@ -198,7 +198,7 @@ fun HostRoute(
                         lastWidth = w
                         lastHeight = h
                         drawingController.setViewportSize(w, h)
-                        viewModel.setGLSurfaceView(view)
+                        viewModel.setSurfaceView(view)
                     }
                 }
 

@@ -4,7 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Matrix
 import android.graphics.Paint
-import android.opengl.GLSurfaceView
+import android.view.SurfaceView
 import android.os.Handler
 import android.os.HandlerThread
 import android.view.PixelCopy
@@ -17,10 +17,10 @@ import timber.log.Timber
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * ARCore GLSurfaceView에서 렌더링된 프레임을 캡처하여
+ * ARCore SurfaceView에서 렌더링된 프레임을 캡처하여
  * LiveKit VideoTrack으로 스트리밍합니다.
  *
- * PixelCopy API를 사용하여 GLSurfaceView의 렌더링 결과를
+ * PixelCopy API를 사용하여 SurfaceView의 렌더링 결과를
  * Bitmap으로 캡처한 후, BitmapFrameCapturer를 통해
  * LiveKit에 전달합니다.
  *
@@ -58,12 +58,12 @@ class ARFrameCapturer {
      * AR 프레임 캡처를 시작합니다.
      *
      * @param room LiveKit Room
-     * @param surfaceView AR 렌더링이 이루어지는 GLSurfaceView
+     * @param surfaceView AR 렌더링이 이루어지는 SurfaceView
      * @param fps 캡처 프레임 레이트 (기본 15fps)
      */
     suspend fun start(
         room: Room,
-        surfaceView: GLSurfaceView,
+        surfaceView: SurfaceView,
         fps: Int = DEFAULT_FPS
     ) {
         if (isCapturing) {
@@ -140,7 +140,7 @@ class ARFrameCapturer {
         })
     }
 
-    private fun captureFrame(surfaceView: GLSurfaceView) {
+    private fun captureFrame(surfaceView: SurfaceView) {
         // 이전 PixelCopy가 아직 진행 중이면 이번 프레임 스킵
         if (!copyInProgress.compareAndSet(false, true)) return
 

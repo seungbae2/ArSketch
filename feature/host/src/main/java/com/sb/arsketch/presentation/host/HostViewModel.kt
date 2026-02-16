@@ -1,6 +1,6 @@
 package com.sb.arsketch.presentation.host
 
-import android.opengl.GLSurfaceView
+import android.view.SurfaceView
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -61,7 +61,7 @@ class HostViewModel @Inject constructor(
     private val eventThrottleMs = 16L
 
     init {
-        streamingSession.setRemoteTouchHandler { event -> handleRemoteTouchEvent(event) }
+        observeRemoteTouchEvents()
         observeStreamingState()
 
         if (serverUrl.isNotBlank() && token.isNotBlank()) {
@@ -272,37 +272,38 @@ class HostViewModel @Inject constructor(
     }
 
     /**
-     * AR GLSurfaceView가 생성된 후 호출.
+     * AR SurfaceView가 생성된 후 호출.
      * 서비스에 뷰를 전달하면, 서비스가 Room 연결과 뷰 모두 준비될 때 캡처를 시작합니다.
      */
-    fun setGLSurfaceView(surfaceView: GLSurfaceView) {
+    fun setSurfaceView(surfaceView: SurfaceView) {
         streamingSession.setARSurfaceView(surfaceView)
     }
 
     // ========== Streaming ==========
 
     private fun startStreaming() {
-        _uiState.update { it.copy(streamingState = StreamingUiState.Connecting) }
-
-        streamingSession.connect(
-            url = serverUrl,
-            token = token,
-            onSuccess = {
+        viewModelScope.launch {
+            try {
+                streamingSession.connect(url = serverUrl, token = token)
                 Timber.d("Streaming started")
-            },
-            onError = { e ->
+            } catch (e: Exception) {
                 Timber.e(e, "Streaming failed")
-                _uiState.update {
-                    it.copy(streamingState = StreamingUiState.Error(e.message ?: "Connection failed"))
-                }
-                viewModelScope.launch { _events.send(HostEvent.Error("스트리밍 연결 실패: ${e.message}")) }
+                _events.send(HostEvent.Error("스트리밍 연결 실패: ${e.message}"))
             }
-        )
+        }
+    }
+
+    private fun observeRemoteTouchEvents() {
+        viewModelScope.launch {
+            streamingSession.remoteTouchEvents.collect { event ->
+                handleRemoteTouchEvent(event)
+            }
+        }
     }
 
     private fun observeStreamingState() {
         viewModelScope.launch {
-            streamingSession.streamingState.collect { state ->
+            streamingSession.connectionState.collect { state ->
                 val uiStreamingState = when (state) {
                     is ConnectionState.Idle -> StreamingUiState.Idle
                     is ConnectionState.Connecting -> StreamingUiState.Connecting

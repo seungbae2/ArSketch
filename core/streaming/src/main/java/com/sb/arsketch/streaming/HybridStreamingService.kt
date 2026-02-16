@@ -6,10 +6,10 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.opengl.GLSurfaceView
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import android.view.SurfaceView
 import androidx.core.app.NotificationCompat
 import com.sb.arsketch.domain.model.RemoteTouchEvent
 import com.sb.arsketch.domain.model.StrokeEvent
@@ -22,14 +22,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import com.sb.arsketch.streaming.api.HostStreamingController
-import com.sb.arsketch.streaming.api.ConnectionState
 import timber.log.Timber
 
 /**
@@ -38,30 +39,33 @@ import timber.log.Timber
  * AR 렌더링 영상은 ARFrameCapturer(PixelCopy)를 통해 LiveKit VideoTrack으로,
  * AR 드로잉 데이터는 DataChannel(JSON)로 전송합니다.
  */
-class HybridStreamingService : Service(), HostStreamingController {
+class HybridStreamingService : Service() {
 
     private val binder = LocalBinder()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private var room: Room? = null
     private val arFrameCapturer = ARFrameCapturer()
-    private var pendingSurfaceView: GLSurfaceView? = null
+    private var pendingSurfaceView: SurfaceView? = null
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    // 리모트 터치 이벤트 수신 콜백
-    override var onRemoteTouchReceived: ((RemoteTouchEvent) -> Unit)? = null
+    // 리모트 터치 이벤트를 Flow로 발행
+    private val _remoteTouchEvents = MutableSharedFlow<RemoteTouchEvent>(extraBufferCapacity = 64)
+    val remoteTouchEvents: Flow<RemoteTouchEvent> = _remoteTouchEvents.asSharedFlow()
 
-    // 스트리밍 상태
-    private val _streamingState = MutableStateFlow<ConnectionState>(ConnectionState.Idle)
-    override val streamingState: StateFlow<ConnectionState> = _streamingState.asStateFlow()
+    // 연결 상태
+    private val _connectionState = MutableStateFlow<com.sb.arsketch.streaming.api.ConnectionState>(
+        com.sb.arsketch.streaming.api.ConnectionState.Idle
+    )
+    val connectionState: StateFlow<com.sb.arsketch.streaming.api.ConnectionState> = _connectionState.asStateFlow()
 
     // 참가자 수
     private val _participantCount = MutableStateFlow(0)
-    override val participantCount: StateFlow<Int> = _participantCount.asStateFlow()
+    val participantCount: StateFlow<Int> = _participantCount.asStateFlow()
 
     inner class LocalBinder : Binder() {
-        fun getController(): HostStreamingController = this@HybridStreamingService
+        fun getService(): HybridStreamingService = this@HybridStreamingService
     }
 
     override fun onBind(intent: Intent): IBinder = binder
@@ -89,67 +93,52 @@ class HybridStreamingService : Service(), HostStreamingController {
 
     /**
      * LiveKit 연결 (비디오 트랙은 setARSurfaceView에서 시작)
-     *
-     * @param url LiveKit 서버 URL
-     * @param token 인증 토큰
      */
-    override fun connect(
-        url: String,
-        token: String,
-        onSuccess: () -> Unit,
-        onError: (Exception) -> Unit
-    ) {
-        if (_streamingState.value != ConnectionState.Idle) {
-            onError(IllegalStateException("Already connected or connecting"))
-            return
+    suspend fun connect(url: String, token: String) {
+        if (_connectionState.value != com.sb.arsketch.streaming.api.ConnectionState.Idle) {
+            throw IllegalStateException("Already connected or connecting")
         }
 
-        _streamingState.value = ConnectionState.Connecting
+        _connectionState.value = com.sb.arsketch.streaming.api.ConnectionState.Connecting
 
-        serviceScope.launch {
-            try {
-                Timber.d("Connecting to LiveKit: $url")
+        try {
+            Timber.d("Connecting to LiveKit: $url")
 
-                // Room 생성 및 연결
-                room = LiveKit.create(appContext = applicationContext)
-                room?.connect(url, token)
+            room = LiveKit.create(appContext = applicationContext)
+            room?.connect(url, token)
 
-                Timber.d("Connected to room: ${room?.name}")
+            Timber.d("Connected to room: ${room?.name}")
 
-                _streamingState.value = ConnectionState.Connected(
-                    roomName = room?.name ?: ""
-                )
+            _connectionState.value = com.sb.arsketch.streaming.api.ConnectionState.Connected(
+                roomName = room?.name ?: ""
+            )
 
-                // 참가자 수 추적
-                observeRoomEvents()
+            observeRoomEvents()
+            tryStartCapture()
 
-                // GLSurfaceView가 이미 설정되어 있으면 캡처 시작
-                tryStartCapture()
-
-                onSuccess()
-
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to connect")
-                _streamingState.value = ConnectionState.Error(e.message ?: "Connection failed")
-                cleanup()
-                onError(e)
-            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to connect")
+            _connectionState.value = com.sb.arsketch.streaming.api.ConnectionState.Error(
+                e.message ?: "Connection failed"
+            )
+            cleanup()
+            throw e
         }
     }
 
     /**
-     * AR GLSurfaceView를 설정합니다.
+     * AR SurfaceView를 설정합니다.
      * Room이 이미 연결되어 있으면 즉시 캡처를 시작하고,
      * 아직 연결 전이면 연결 완료 시 자동으로 시작합니다.
      */
-    override fun setARSurfaceView(surfaceView: GLSurfaceView) {
+    fun setARSurfaceView(surfaceView: SurfaceView) {
         Timber.d("setARSurfaceView called, view: ${surfaceView.width}x${surfaceView.height}")
         pendingSurfaceView = surfaceView
         tryStartCapture()
     }
 
     /**
-     * Room과 GLSurfaceView가 모두 준비되면 AR 프레임 캡처를 시작합니다.
+     * Room과 SurfaceView가 모두 준비되면 AR 프레임 캡처를 시작합니다.
      */
     private fun tryStartCapture() {
         val currentRoom = room ?: run {
@@ -161,17 +150,16 @@ class HybridStreamingService : Service(), HostStreamingController {
             return
         }
 
-        if (_streamingState.value !is ConnectionState.Connected) {
-            Timber.d("tryStartCapture: not streaming yet, waiting")
+        if (_connectionState.value !is com.sb.arsketch.streaming.api.ConnectionState.Connected) {
+            Timber.d("tryStartCapture: not connected yet, waiting")
             return
         }
 
         Timber.d("tryStartCapture: all ready, starting AR capture")
-        pendingSurfaceView = null // 중복 시작 방지
+        pendingSurfaceView = null
 
         serviceScope.launch {
             try {
-                // 기존 캡처 중지 (화면 회전 등으로 뷰가 바뀐 경우)
                 arFrameCapturer.stop()
                 arFrameCapturer.start(currentRoom, view)
                 Timber.d("AR frame capture started successfully")
@@ -194,7 +182,7 @@ class HybridStreamingService : Service(), HostStreamingController {
                             try {
                                 val jsonString = event.data.toString(Charsets.UTF_8)
                                 val touchEvent = json.decodeFromString<RemoteTouchEvent>(jsonString)
-                                onRemoteTouchReceived?.invoke(touchEvent)
+                                _remoteTouchEvents.tryEmit(touchEvent)
                             } catch (e: Exception) {
                                 Timber.e(e, "Failed to deserialize RemoteTouchEvent")
                             }
@@ -204,17 +192,14 @@ class HybridStreamingService : Service(), HostStreamingController {
                 }
             }
         }
-        // 초기값 설정
         _participantCount.value = (room?.remoteParticipants?.size ?: 0) + 1
     }
 
     /**
      * StrokeEvent를 DataChannel로 전송
-     *
-     * @param event 전송할 StrokeEvent
      */
-    override fun publishStrokeEvent(event: StrokeEvent) {
-        if (_streamingState.value !is ConnectionState.Connected) return
+    fun publishStrokeEvent(event: StrokeEvent) {
+        if (_connectionState.value !is com.sb.arsketch.streaming.api.ConnectionState.Connected) return
 
         serviceScope.launch {
             try {
@@ -235,11 +220,11 @@ class HybridStreamingService : Service(), HostStreamingController {
     /**
      * 연결 해제 및 리소스 정리
      */
-    override fun disconnect() {
+    fun disconnect() {
         Timber.d("Disconnecting")
         serviceScope.launch {
             cleanup()
-            _streamingState.value = ConnectionState.Idle
+            _connectionState.value = com.sb.arsketch.streaming.api.ConnectionState.Idle
             stopSelf()
         }
     }
@@ -261,7 +246,6 @@ class HybridStreamingService : Service(), HostStreamingController {
 
     override fun onDestroy() {
         super.onDestroy()
-        // 동기적으로 정리 (coroutine scope 취소 전)
         arFrameCapturer.stop()
         try {
             room?.disconnect()
