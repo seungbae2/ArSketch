@@ -22,7 +22,7 @@ ArSketch is a real-time AR drawing Android app that streams augmented reality sk
 ./gradlew compileDebugKotlin
 
 # Build specific module
-./gradlew :core:domain:assemble
+./gradlew :core:domain:build
 ./gradlew :feature:host:assemble
 ```
 
@@ -69,7 +69,7 @@ ArSketch is a real-time AR drawing Android app that streams augmented reality sk
 
 ```
 :app                        ← Application shell, DI wiring, Navigation
-├── :core:domain            ← Domain models, UseCases (pure Kotlin, no Android deps)
+├── :core:domain            ← Domain models, UseCases (pure Kotlin JVM, no Android deps)
 ├── :core:ar                ← ARCore session, renderer, drawing controller
 ├── :core:streaming-api     ← Streaming interfaces & state definitions
 ├── :core:streaming         ← LiveKit implementation (foreground service)
@@ -99,8 +99,8 @@ app ─────────────▶ all modules (assembly + DI)
 | `app` | `app/src/main/java/com/sb/arsketch/` | Application, MainActivity, DI modules, NavGraph |
 | `core:domain` | `core/domain/src/main/java/com/sb/arsketch/domain/` | `model/` (Point3D, Stroke, StrokeEvent, BrushSettings, DrawingMode) + `usecase/stroke/` |
 | `core:ar` | `core/ar/src/main/java/com/sb/arsketch/ar/` | `core/` (ARSessionManager, DrawingController) + `renderer/` + `util/` + `geometry/` |
-| `core:streaming-api` | `core/streaming-api/src/main/java/com/sb/arsketch/streaming/` | `api/` interfaces (HostStreamingController, HostStreamingSession, ViewerStreamingClient) + state models |
-| `core:streaming` | `core/streaming/src/main/java/com/sb/arsketch/streaming/` | HybridStreamingService, HostStreamingSessionImpl, ARFrameCapturer, ViewerConnectionManager |
+| `core:streaming-api` | `core/streaming-api/src/main/java/com/sb/arsketch/streaming/api/` | Interfaces (HostStreamingSession, ViewerStreamingClient) + state model (ConnectionState) |
+| `core:streaming` | `core/streaming/src/main/java/com/sb/arsketch/streaming/` | HybridStreamingService, HostStreamingSessionImpl, ARFrameCapturer, ViewerConnectionManager, StreamingConstants (internal) |
 | `core:ui` | `core/ui/src/main/java/com/sb/arsketch/ui/theme/` | Color, Theme, Type |
 | `feature:connect` | `feature/connect/src/main/java/com/sb/arsketch/presentation/connect/` | ConnectScreen/Route/ViewModel/UiState/Action/Event |
 | `feature:host` | `feature/host/src/main/java/com/sb/arsketch/presentation/host/` | HostScreen/Route/ViewModel/UiState/Action/Event + `component/` |
