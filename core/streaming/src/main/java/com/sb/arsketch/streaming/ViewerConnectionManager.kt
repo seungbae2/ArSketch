@@ -28,10 +28,9 @@ class ViewerConnectionManager(
     private val context: Context,
     private val strokeEventReceiver: StrokeEventReceiver
 ) : ViewerStreamingClient {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private var room: Room? = null
-    private var isDestroyed = false
 
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Idle)
     override val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
@@ -39,35 +38,33 @@ class ViewerConnectionManager(
     private val _participantCount = MutableStateFlow(0)
     override val participantCount: StateFlow<Int> = _participantCount.asStateFlow()
 
-    override fun connect(serverUrl: String, token: String) {
-        if (_connectionState.value !is ConnectionState.Idle) return
-        if (isDestroyed) return
+    override suspend fun connect(serverUrl: String, token: String) {
+        if (_connectionState.value != ConnectionState.Idle) return
 
         _connectionState.value = ConnectionState.Connecting
 
-        scope.launch {
-            try {
-                Timber.d("Viewer connecting to: $serverUrl")
+        try {
+            Timber.d("Viewer connecting to: $serverUrl")
 
-                room = LiveKit.create(appContext = context)
-                room?.connect(serverUrl, token)
+            room = LiveKit.create(appContext = context)
+            room?.connect(serverUrl, token)
 
-                Timber.d("Viewer connected to room: ${room?.name}")
+            Timber.d("Viewer connected to room: ${room?.name}")
 
-                _connectionState.value = ConnectionState.Connected(
-                    roomName = room?.name ?: ""
-                )
+            _connectionState.value = ConnectionState.Connected(
+                roomName = room?.name ?: ""
+            )
 
-                observeRoomEvents()
-                updateParticipantCount()
+            observeRoomEvents()
+            updateParticipantCount()
 
-            } catch (e: Exception) {
-                Timber.e(e, "Viewer connection failed")
-                _connectionState.value = ConnectionState.Error(
-                    e.message ?: "Connection failed"
-                )
-                cleanup()
-            }
+        } catch (e: Exception) {
+            Timber.e(e, "Viewer connection failed")
+            _connectionState.value = ConnectionState.Error(
+                e.message ?: "Connection failed"
+            )
+            cleanup()
+            throw e
         }
     }
 
@@ -98,14 +95,7 @@ class ViewerConnectionManager(
     }
 
     override fun disconnect() {
-        if (isDestroyed) return
-        scope.launch {
-            cleanup()
-            _connectionState.value = ConnectionState.Idle
-        }
-    }
-
-    private suspend fun cleanup() {
+        scope.cancel()
         try {
             room?.disconnect()
         } catch (e: Exception) {
@@ -113,17 +103,18 @@ class ViewerConnectionManager(
         }
         room = null
         strokeEventReceiver.clear()
+        _connectionState.value = ConnectionState.Idle
+        _participantCount.value = 0
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     }
 
-    override fun destroy() {
-        if (isDestroyed) return
-        isDestroyed = true
+    private fun cleanup() {
         try {
             room?.disconnect()
         } catch (e: Exception) {
-            Timber.e(e, "Error on viewer destroy")
+            Timber.e(e, "Error disconnecting viewer room")
         }
         room = null
-        scope.cancel()
+        strokeEventReceiver.clear()
     }
 }

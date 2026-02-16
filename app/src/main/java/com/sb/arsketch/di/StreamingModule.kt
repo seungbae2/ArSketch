@@ -10,31 +10,37 @@ import com.sb.arsketch.streaming.api.ViewerStreamingClient
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.components.ViewModelComponent
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.android.scopes.ViewModelScoped
 import dagger.hilt.components.SingletonComponent
-import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
 object StreamingModule {
 
     @Provides
-    @Singleton
+    fun provideHostStreamingSession(
+        @ApplicationContext context: Context
+    ): HostStreamingSession = HostStreamingSessionImpl(context)
+}
+
+@Module
+@InstallIn(ViewModelComponent::class)
+object ViewerStreamingModule {
+
+    @Provides
+    @ViewModelScoped
     fun provideStrokeEventReceiver(): StrokeEventReceiver = StrokeEventReceiver()
 
     @Provides
-    @Singleton
+    @ViewModelScoped
     fun provideStrokeEventSource(receiver: StrokeEventReceiver): StrokeEventSource = receiver
 
     @Provides
-    @Singleton
+    @ViewModelScoped
     fun provideViewerStreamingClient(
         @ApplicationContext context: Context,
         receiver: StrokeEventReceiver
     ): ViewerStreamingClient = ViewerConnectionManager(context, receiver)
-
-    @Provides
-    fun provideHostStreamingSession(
-        @ApplicationContext context: Context
-    ): HostStreamingSession = HostStreamingSessionImpl(context)
 }

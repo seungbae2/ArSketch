@@ -39,7 +39,13 @@ class ViewerViewModel @Inject constructor(
 
     init {
         if (serverUrl.isNotBlank() && token.isNotBlank()) {
-            connectionManager.connect(serverUrl, token)
+            viewModelScope.launch {
+                try {
+                    connectionManager.connect(serverUrl, token)
+                } catch (e: Exception) {
+                    _events.send(ViewerEvent.Error(e.message ?: "Connection failed"))
+                }
+            }
         }
         observeConnectionState()
         observeStrokes()
@@ -86,6 +92,6 @@ class ViewerViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
-        connectionManager.destroy()
+        connectionManager.disconnect()
     }
 }
