@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import com.sb.arsketch.streaming.api.ViewerConnectionState
+import com.sb.arsketch.streaming.api.ConnectionState
 import com.sb.arsketch.streaming.api.ViewerStreamingClient
 import timber.log.Timber
 
@@ -33,17 +33,17 @@ class ViewerConnectionManager(
     private var room: Room? = null
     private var isDestroyed = false
 
-    private val _connectionState = MutableStateFlow<ViewerConnectionState>(ViewerConnectionState.Disconnected)
-    override val connectionState: StateFlow<ViewerConnectionState> = _connectionState.asStateFlow()
+    private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Idle)
+    override val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
 
     private val _participantCount = MutableStateFlow(0)
     override val participantCount: StateFlow<Int> = _participantCount.asStateFlow()
 
     override fun connect(serverUrl: String, token: String) {
-        if (_connectionState.value !is ViewerConnectionState.Disconnected) return
+        if (_connectionState.value !is ConnectionState.Idle) return
         if (isDestroyed) return
 
-        _connectionState.value = ViewerConnectionState.Connecting
+        _connectionState.value = ConnectionState.Connecting
 
         scope.launch {
             try {
@@ -54,7 +54,7 @@ class ViewerConnectionManager(
 
                 Timber.d("Viewer connected to room: ${room?.name}")
 
-                _connectionState.value = ViewerConnectionState.Connected(
+                _connectionState.value = ConnectionState.Connected(
                     roomName = room?.name ?: ""
                 )
 
@@ -63,7 +63,7 @@ class ViewerConnectionManager(
 
             } catch (e: Exception) {
                 Timber.e(e, "Viewer connection failed")
-                _connectionState.value = ViewerConnectionState.Error(
+                _connectionState.value = ConnectionState.Error(
                     e.message ?: "Connection failed"
                 )
                 cleanup()
@@ -85,7 +85,7 @@ class ViewerConnectionManager(
                         updateParticipantCount()
                     }
                     is RoomEvent.Disconnected -> {
-                        _connectionState.value = ViewerConnectionState.Disconnected
+                        _connectionState.value = ConnectionState.Idle
                     }
                     else -> {}
                 }
@@ -101,7 +101,7 @@ class ViewerConnectionManager(
         if (isDestroyed) return
         scope.launch {
             cleanup()
-            _connectionState.value = ViewerConnectionState.Disconnected
+            _connectionState.value = ConnectionState.Idle
         }
     }
 

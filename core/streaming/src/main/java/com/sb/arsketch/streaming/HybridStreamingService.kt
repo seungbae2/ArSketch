@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import com.sb.arsketch.streaming.api.HostStreamingController
-import com.sb.arsketch.streaming.api.StreamingState
+import com.sb.arsketch.streaming.api.ConnectionState
 import timber.log.Timber
 
 /**
@@ -53,8 +53,8 @@ class HybridStreamingService : Service(), HostStreamingController {
     override var onRemoteTouchReceived: ((RemoteTouchEvent) -> Unit)? = null
 
     // 스트리밍 상태
-    private val _streamingState = MutableStateFlow<StreamingState>(StreamingState.Idle)
-    override val streamingState: StateFlow<StreamingState> = _streamingState.asStateFlow()
+    private val _streamingState = MutableStateFlow<ConnectionState>(ConnectionState.Idle)
+    override val streamingState: StateFlow<ConnectionState> = _streamingState.asStateFlow()
 
     // 참가자 수
     private val _participantCount = MutableStateFlow(0)
@@ -99,12 +99,12 @@ class HybridStreamingService : Service(), HostStreamingController {
         onSuccess: () -> Unit,
         onError: (Exception) -> Unit
     ) {
-        if (_streamingState.value != StreamingState.Idle) {
+        if (_streamingState.value != ConnectionState.Idle) {
             onError(IllegalStateException("Already connected or connecting"))
             return
         }
 
-        _streamingState.value = StreamingState.Connecting
+        _streamingState.value = ConnectionState.Connecting
 
         serviceScope.launch {
             try {
@@ -116,7 +116,7 @@ class HybridStreamingService : Service(), HostStreamingController {
 
                 Timber.d("Connected to room: ${room?.name}")
 
-                _streamingState.value = StreamingState.Streaming(
+                _streamingState.value = ConnectionState.Connected(
                     roomName = room?.name ?: ""
                 )
 
@@ -130,7 +130,7 @@ class HybridStreamingService : Service(), HostStreamingController {
 
             } catch (e: Exception) {
                 Timber.e(e, "Failed to connect")
-                _streamingState.value = StreamingState.Error(e.message ?: "Connection failed")
+                _streamingState.value = ConnectionState.Error(e.message ?: "Connection failed")
                 cleanup()
                 onError(e)
             }
@@ -161,7 +161,7 @@ class HybridStreamingService : Service(), HostStreamingController {
             return
         }
 
-        if (_streamingState.value !is StreamingState.Streaming) {
+        if (_streamingState.value !is ConnectionState.Connected) {
             Timber.d("tryStartCapture: not streaming yet, waiting")
             return
         }
@@ -214,7 +214,7 @@ class HybridStreamingService : Service(), HostStreamingController {
      * @param event 전송할 StrokeEvent
      */
     override fun publishStrokeEvent(event: StrokeEvent) {
-        if (_streamingState.value !is StreamingState.Streaming) return
+        if (_streamingState.value !is ConnectionState.Connected) return
 
         serviceScope.launch {
             try {
@@ -239,7 +239,7 @@ class HybridStreamingService : Service(), HostStreamingController {
         Timber.d("Disconnecting")
         serviceScope.launch {
             cleanup()
-            _streamingState.value = StreamingState.Idle
+            _streamingState.value = ConnectionState.Idle
             stopSelf()
         }
     }

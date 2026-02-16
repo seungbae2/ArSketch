@@ -3,7 +3,7 @@ package com.sb.arsketch.presentation.viewer
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.sb.arsketch.streaming.api.ViewerConnectionState
+import com.sb.arsketch.streaming.api.ConnectionState
 import com.sb.arsketch.streaming.api.StrokeEventSource
 import com.sb.arsketch.streaming.api.ViewerStreamingClient
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -56,7 +56,7 @@ class ViewerViewModel @Inject constructor(
         viewModelScope.launch {
             connectionManager.connectionState.collect { state ->
                 _uiState.update { it.copy(connectionState = state) }
-                if (state is ViewerConnectionState.Error) {
+                if (state is ConnectionState.Error) {
                     _events.send(ViewerEvent.Error(state.message))
                 }
             }

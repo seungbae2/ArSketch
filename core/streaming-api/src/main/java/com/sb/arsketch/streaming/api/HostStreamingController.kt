@@ -6,7 +6,7 @@ import com.sb.arsketch.domain.model.StrokeEvent
 import kotlinx.coroutines.flow.StateFlow
 
 interface HostStreamingController {
-    val streamingState: StateFlow<StreamingState>
+    val streamingState: StateFlow<ConnectionState>
     val participantCount: StateFlow<Int>
     var onRemoteTouchReceived: ((RemoteTouchEvent) -> Unit)?
 

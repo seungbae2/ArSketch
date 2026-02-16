@@ -17,7 +17,7 @@ import com.sb.arsketch.domain.usecase.stroke.ClearAllStrokesUseCase
 import com.sb.arsketch.domain.usecase.stroke.CreateStrokeUseCase
 import com.sb.arsketch.domain.usecase.stroke.RedoStrokeUseCase
 import com.sb.arsketch.domain.usecase.stroke.UndoStrokeUseCase
-import com.sb.arsketch.streaming.api.StreamingState
+import com.sb.arsketch.streaming.api.ConnectionState
 import com.sb.arsketch.streaming.api.HostStreamingSession
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -304,10 +304,10 @@ class HostViewModel @Inject constructor(
         viewModelScope.launch {
             streamingSession.streamingState.collect { state ->
                 val uiStreamingState = when (state) {
-                    is StreamingState.Idle -> StreamingUiState.Idle
-                    is StreamingState.Connecting -> StreamingUiState.Connecting
-                    is StreamingState.Streaming -> StreamingUiState.Streaming(roomName = state.roomName)
-                    is StreamingState.Error -> StreamingUiState.Error(state.message)
+                    is ConnectionState.Idle -> StreamingUiState.Idle
+                    is ConnectionState.Connecting -> StreamingUiState.Connecting
+                    is ConnectionState.Connected -> StreamingUiState.Streaming(roomName = state.roomName)
+                    is ConnectionState.Error -> StreamingUiState.Error(state.message)
                 }
                 _uiState.update { it.copy(streamingState = uiStreamingState) }
             }

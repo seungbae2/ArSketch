@@ -10,7 +10,7 @@ import com.sb.arsketch.domain.model.RemoteTouchEvent
 import com.sb.arsketch.domain.model.StrokeEvent
 import com.sb.arsketch.streaming.api.HostStreamingController
 import com.sb.arsketch.streaming.api.HostStreamingSession
-import com.sb.arsketch.streaming.api.StreamingState
+import com.sb.arsketch.streaming.api.ConnectionState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -32,8 +32,8 @@ class HostStreamingSessionImpl(
     private var pendingSurfaceView: GLSurfaceView? = null
     private var remoteTouchHandler: ((RemoteTouchEvent) -> Unit)? = null
 
-    private val _streamingState = MutableStateFlow<StreamingState>(StreamingState.Idle)
-    override val streamingState: StateFlow<StreamingState> = _streamingState.asStateFlow()
+    private val _streamingState = MutableStateFlow<ConnectionState>(ConnectionState.Idle)
+    override val streamingState: StateFlow<ConnectionState> = _streamingState.asStateFlow()
 
     private val _participantCount = MutableStateFlow(0)
     override val participantCount: StateFlow<Int> = _participantCount.asStateFlow()
@@ -69,7 +69,7 @@ class HostStreamingSessionImpl(
         override fun onServiceDisconnected(name: ComponentName?) {
             controller = null
             isServiceBound = false
-            _streamingState.value = StreamingState.Idle
+            _streamingState.value = ConnectionState.Idle
         }
     }
 
@@ -79,7 +79,7 @@ class HostStreamingSessionImpl(
         onSuccess: () -> Unit,
         onError: (Exception) -> Unit
     ) {
-        _streamingState.value = StreamingState.Connecting
+        _streamingState.value = ConnectionState.Connecting
         pendingConnect = PendingConnect(url, token, onSuccess, onError)
 
         val serviceIntent = Intent(context, HybridStreamingService::class.java)
@@ -118,7 +118,7 @@ class HostStreamingSessionImpl(
 
         controller = null
         pendingConnect = null
-        _streamingState.value = StreamingState.Idle
+        _streamingState.value = ConnectionState.Idle
         _participantCount.value = 0
         scope.cancel()
     }

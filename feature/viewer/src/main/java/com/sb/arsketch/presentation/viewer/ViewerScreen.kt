@@ -31,7 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.sb.arsketch.presentation.viewer.component.StrokeOverlay
-import com.sb.arsketch.streaming.api.ViewerConnectionState
+import com.sb.arsketch.streaming.api.ConnectionState
 
 @Composable
 fun ViewerScreen(
@@ -41,7 +41,7 @@ fun ViewerScreen(
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         when (val state = uiState.connectionState) {
-            is ViewerConnectionState.Disconnected -> {
+            is ConnectionState.Idle -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -50,7 +50,7 @@ fun ViewerScreen(
                 }
             }
 
-            is ViewerConnectionState.Connecting -> {
+            is ConnectionState.Connecting -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -63,7 +63,7 @@ fun ViewerScreen(
                 }
             }
 
-            is ViewerConnectionState.Connected -> {
+            is ConnectionState.Connected -> {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -87,7 +87,7 @@ fun ViewerScreen(
                 }
             }
 
-            is ViewerConnectionState.Error -> {
+            is ConnectionState.Error -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -131,14 +131,14 @@ fun ViewerScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 val statusText = when (uiState.connectionState) {
-                    is ViewerConnectionState.Connected -> "Connected"
-                    is ViewerConnectionState.Connecting -> "Connecting..."
-                    is ViewerConnectionState.Disconnected -> "Disconnected"
-                    is ViewerConnectionState.Error -> "Error"
+                    is ConnectionState.Connected -> "Connected"
+                    is ConnectionState.Connecting -> "Connecting..."
+                    is ConnectionState.Idle -> "Disconnected"
+                    is ConnectionState.Error -> "Error"
                 }
                 val statusColor = when (uiState.connectionState) {
-                    is ViewerConnectionState.Connected -> Color(0xFF4CAF50)
-                    is ViewerConnectionState.Connecting -> Color.Yellow
+                    is ConnectionState.Connected -> Color(0xFF4CAF50)
+                    is ConnectionState.Connecting -> Color.Yellow
                     else -> Color.Red
                 }
 
