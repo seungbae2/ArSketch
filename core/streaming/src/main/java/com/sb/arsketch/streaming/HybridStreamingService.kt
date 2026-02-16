@@ -29,7 +29,6 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import com.sb.arsketch.streaming.api.HostStreamingController
-import com.sb.arsketch.streaming.api.StreamingConstants
 import com.sb.arsketch.streaming.api.StreamingState
 import timber.log.Timber
 
