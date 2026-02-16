@@ -90,7 +90,7 @@ app ─────────────▶ all modules (assembly + DI)
 ```
 
 **Data flow:**
-- **Video**: ARCore GLSurfaceView → PixelCopy → BitmapFrameCapturer → LiveKit VideoTrack → Web `<video>`
+- **Video**: ARCore SurfaceView → PixelCopy → BitmapFrameCapturer → LiveKit VideoTrack → Web `<video>`
 - **Strokes**: StrokeEvent → JSON → DataChannel (topic: `ar_drawing`) → Web Canvas overlay
 - **Remote touch**: Web touch/mouse → DataChannel (topic: `remote_touch`) → Host DrawingController
 
@@ -233,12 +233,11 @@ ArSketch/
 │   │       └── geometry/                   # LineStripMesh
 │   │
 │   ├── streaming-api/                      # Streaming abstractions
-│   │   └── src/main/java/.../streaming/
-│   │       ├── api/                        # HostStreamingController, HostStreamingSession,
-│   │       │                               # ViewerStreamingClient, StrokeEventSource interfaces
-│   │       ├── StreamingState.kt           # Connection state models
-│   │       ├── ViewerConnectionState.kt
-│   │       └── StreamingConstants.kt
+│   │   └── src/main/java/.../streaming/api/
+│   │       ├── HostStreamingSession.kt     # Host interface (connect, publish, surface)
+│   │       ├── ViewerStreamingClient.kt    # Viewer interface (connect, disconnect)
+│   │       ├── StrokeEventSource.kt        # Stroke event stream interface
+│   │       └── ConnectionState.kt          # Unified state: Idle, Connecting, Connected, Error
 │   │
 │   ├── streaming/                          # LiveKit implementation
 │   │   └── src/main/java/.../streaming/
@@ -246,7 +245,8 @@ ArSketch/
 │   │       ├── HostStreamingSessionImpl.kt # Service binding lifecycle manager
 │   │       ├── ARFrameCapturer.kt          # PixelCopy → BitmapFrameCapturer
 │   │       ├── StrokeEventReceiver.kt      # DataChannel stroke parsing
-│   │       └── ViewerConnectionManager.kt  # Viewer-side LiveKit connection
+│   │       ├── ViewerConnectionManager.kt  # Viewer-side LiveKit connection
+│   │       └── StreamingConstants.kt       # Internal constants (data topics)
 │   │
 │   └── ui/                                 # Compose theme
 │       └── src/main/java/.../ui/theme/
