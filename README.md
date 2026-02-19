@@ -31,6 +31,10 @@ Draw on surfaces or in mid-air using ARCore, and share your creation live with a
 
 ## Architecture
 
+> **Learn more:**
+> - [Architecture Deep Dive](docs/architecture-deep-dive.md) — AR rendering, touch-to-3D drawing, and WebRTC streaming pipeline in detail
+> - [Streaming Troubleshooting](docs/streaming-troubleshooting.md) — ARCore+LiveKit camera conflict resolution, SDK analysis, and key lessons
+
 ### Multi-Module Structure
 
 ```
