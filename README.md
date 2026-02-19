@@ -82,16 +82,15 @@ app ─────────────▶ all modules (assembly + DI)
                                             │
 ┌───────────────────────────────────────────┼────────┐
 │                Web Viewer                  │        │
-│  ┌────────────┐  ┌──────────┐  ┌──────────▼─────┐  │
-│  │ <video>    │  │ Canvas   │  │ livekit-client │  │
-│  │ AR Stream  │  │ Overlay  │  │ DataChannel    │  │
-│  └────────────┘  └──────────┘  └────────────────┘  │
+│  ┌────────────┐                ┌──────────▼─────┐  │
+│  │ <video>    │                │ livekit-client │  │
+│  │ AR Stream  │                │ DataChannel    │  │
+│  └────────────┘                └────────────────┘  │
 └─────────────────────────────────────────────────────┘
 ```
 
 **Data flow:**
-- **Video**: ARCore SurfaceView → PixelCopy → BitmapFrameCapturer → LiveKit VideoTrack → Web `<video>`
-- **Strokes**: StrokeEvent → JSON → DataChannel (topic: `ar_drawing`) → Web Canvas overlay
+- **Video**: ARCore SurfaceView (with strokes) → PixelCopy → BitmapFrameCapturer → LiveKit VideoTrack → Web `<video>`
 - **Remote touch**: Web touch/mouse → DataChannel (topic: `remote_touch`) → Host DrawingController
 
 ## Prerequisites
@@ -292,14 +291,10 @@ ArSketch/
 ├── web-viewer/                             # Browser-based viewer
 │   ├── src/
 │   │   ├── main.ts                         # Entry point
-│   │   ├── livekit-connection.ts           # Room connection, subscriptions
-│   │   ├── stroke-processor.ts             # Parse stroke events
-│   │   ├── stroke-renderer.ts              # Canvas rendering
-│   │   ├── drawing-input.ts                # Mouse/touch input
-│   │   ├── remote-touch.ts                 # Touch event forwarding
-│   │   ├── color-utils.ts                  # ARGB ↔ CSS conversion
-│   │   ├── ui.ts                           # UI controls
-│   │   └── types.ts                        # TypeScript interfaces
+│   │   ├── livekit-connection.ts           # Room connection, video subscription
+│   │   ├── drawing-input.ts                # Mouse/touch input → remote drawing
+│   │   ├── remote-touch.ts                 # RemoteTouchEvent type definitions
+│   │   └── ui.ts                           # UI controls
 │   ├── index.html
 │   └── package.json
 │
@@ -316,7 +311,7 @@ ArSketch/
 | **No plane detection** | Point camera at a textured, well-lit flat surface. Move the device slowly. |
 | **"ARCore not installed"** | Install Google Play Services for AR from the Play Store. |
 | **Web viewer won't connect** | Verify `.env.local` has correct LiveKit URL and a valid token. Check browser console for errors. |
-| **Strokes not appearing on web** | Confirm both host and viewer are in the same room. Check DataChannel topic is `ar_drawing`. |
+| **Strokes not appearing on web** | Strokes are rendered in the AR video feed. Confirm both host and viewer are in the same room and video track is publishing. |
 | **Token expired** | Regenerate tokens with `livekit-cli`. Use `--valid-for 8760h` for long-lived tokens. |
 | **Build fails with missing `LIVEKIT_URL`** | Ensure `local.properties` contains both `LIVEKIT_URL` and `LIVEKIT_HOST_TOKEN`. |
 

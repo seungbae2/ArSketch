@@ -1,4 +1,3 @@
-import { StrokeProcessor } from './stroke-processor';
 import { LiveKitConnection, type ConnectionState } from './livekit-connection';
 import { DrawingInput } from './drawing-input';
 import {
@@ -28,10 +27,6 @@ if (import.meta.env.VITE_LIVEKIT_TOKEN) {
 }
 
 // --- Core instances ---
-// StrokeProcessor: DataChannel 수신은 유지 (향후 활용 가능)
-// 캔버스 오버레이 렌더링은 비활성화 — 비디오에 스트로크가 이미 포함됨
-const strokeProcessor = new StrokeProcessor();
-
 let participantCount = 0;
 let drawingInput: DrawingInput | null = null;
 
@@ -52,9 +47,6 @@ const connection = new LiveKitConnection(videoElement, {
   onParticipantCountChange: (count: number) => {
     participantCount = count;
     updateStatus('connected', count);
-  },
-  onDataReceived: (payload: Uint8Array) => {
-    strokeProcessor.onDataReceived(payload);
   },
 });
 
@@ -122,7 +114,6 @@ disconnectBtn.addEventListener('click', () => {
 });
 
 function handleDisconnect(): void {
-  strokeProcessor.clear();
   drawingInput?.clearPublishFunction();
   drawingInput = null;
   setConnectButtonLoading(false);

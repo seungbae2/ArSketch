@@ -4,7 +4,6 @@ import {
   Track,
   type RemoteTrackPublication,
   type RemoteParticipant,
-  type DataPacket_Kind,
 } from 'livekit-client';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
@@ -12,18 +11,17 @@ export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'err
 export interface LiveKitCallbacks {
   onStateChange: (state: ConnectionState, error?: string) => void;
   onParticipantCountChange: (count: number) => void;
-  onDataReceived: (payload: Uint8Array) => void;
 }
-
-const AR_DRAWING_TOPIC = 'ar_drawing';
 
 /**
  * LiveKit room connection manager for the web viewer.
  *
  * Subscribes to:
- * - Remote video tracks (NEW: web-only enhancement, not present in Android viewer)
- * - DataChannel messages on "ar_drawing" topic (port of Android ViewerConnectionManager)
+ * - Remote video tracks (AR camera feed with strokes already rendered)
  * - Participant connect/disconnect events
+ *
+ * Publishes:
+ * - DataChannel messages on "remote_touch" topic (web viewer drawing input)
  */
 export class LiveKitConnection {
   private room: Room | null = null;
@@ -109,7 +107,7 @@ export class LiveKitConnection {
   private setupEventListeners(): void {
     if (!this.room) return;
 
-    // NEW (web-only): Subscribe to remote video tracks
+    // Subscribe to remote video tracks (AR camera feed with strokes baked in)
     this.room.on(
       RoomEvent.TrackSubscribed,
       (track: Track, _publication: RemoteTrackPublication, participant: RemoteParticipant) => {
@@ -126,16 +124,6 @@ export class LiveKitConnection {
       (track: Track) => {
         if (track.kind === Track.Kind.Video) {
           track.detach(this.videoElement);
-        }
-      },
-    );
-
-    // DataChannel: AR drawing events (port of Android behavior)
-    this.room.on(
-      RoomEvent.DataReceived,
-      (payload: Uint8Array, _participant?: RemoteParticipant, _kind?: DataPacket_Kind, topic?: string) => {
-        if (topic === AR_DRAWING_TOPIC) {
-          this.callbacks.onDataReceived(payload);
         }
       },
     );
