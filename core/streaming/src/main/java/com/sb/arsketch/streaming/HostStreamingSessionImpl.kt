@@ -81,6 +81,9 @@ class HostStreamingSessionImpl(
             service = null
             isServiceBound = false
             _connectionState.value = ConnectionState.Idle
+
+            scope.cancel()
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         }
     }
 
@@ -120,6 +123,7 @@ class HostStreamingSessionImpl(
         unbindServiceSafely()
 
         service = null
+        pendingSurfaceView = null
         pendingConnectContinuation = null
         pendingConnectParams = null
         _connectionState.value = ConnectionState.Idle

@@ -38,6 +38,8 @@ class ARFrameCapturer {
     @Volatile
     private var isCapturing = false
 
+    private var activeSurfaceView: SurfaceView? = null
+
     // 더블 버퍼링: PixelCopy 대상과 pushBitmap 대상을 분리
     private var bufferA: Bitmap? = null
     private var bufferB: Bitmap? = null
@@ -130,11 +132,13 @@ class ARFrameCapturer {
 
         // 캡처 루프 시작
         isCapturing = true
+        activeSurfaceView = surfaceView
         val intervalMs = 1000L / fps
         captureHandler?.post(object : Runnable {
             override fun run() {
                 if (!isCapturing) return
-                captureFrame(surfaceView)
+                val view = activeSurfaceView ?: return
+                captureFrame(view)
                 captureHandler?.postDelayed(this, intervalMs)
             }
         })
@@ -194,6 +198,7 @@ class ARFrameCapturer {
     fun stop() {
         Timber.d("Stopping AR frame capture")
         isCapturing = false
+        activeSurfaceView = null
 
         captureHandler?.removeCallbacksAndMessages(null)
         captureThread?.quitSafely()

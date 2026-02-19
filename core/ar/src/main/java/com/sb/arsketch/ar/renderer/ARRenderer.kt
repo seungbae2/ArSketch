@@ -144,6 +144,7 @@ class ARRenderer(
 
     fun release() {
         isTextureSet = false
+        onFrameUpdate = null
 
         backgroundRenderer.release()
         planeRenderer.release()

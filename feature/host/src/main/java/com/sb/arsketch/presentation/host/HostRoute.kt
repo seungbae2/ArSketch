@@ -100,7 +100,7 @@ fun HostRoute(
     }
 
     // 드로잉 컨트롤러 콜백 설정
-    LaunchedEffect(drawingController) {
+    DisposableEffect(drawingController) {
         drawingController.onStrokeStartWithAnchor = { info ->
             val brush = info.remoteBrush
             if (brush != null) {
@@ -122,6 +122,12 @@ fun HostRoute(
         }
         drawingController.onStrokeEnd = {
             viewModel.onAction(HostAction.TouchEnd)
+        }
+
+        onDispose {
+            drawingController.onStrokeStartWithAnchor = null
+            drawingController.onStrokePoint = null
+            drawingController.onStrokeEnd = null
         }
     }
 
@@ -159,6 +165,7 @@ fun HostRoute(
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
             glSurfaceView?.release()
+            glSurfaceView = null
         }
     }
 

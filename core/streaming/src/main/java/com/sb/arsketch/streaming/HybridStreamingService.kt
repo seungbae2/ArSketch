@@ -242,6 +242,7 @@ class HybridStreamingService : Service() {
             Timber.e(e, "Error disconnecting room")
         }
         room = null
+        pendingSurfaceView = null
     }
 
     override fun onDestroy() {
@@ -253,6 +254,7 @@ class HybridStreamingService : Service() {
             Timber.e(e, "Error disconnecting room on destroy")
         }
         room = null
+        pendingSurfaceView = null
         serviceScope.cancel()
     }
 

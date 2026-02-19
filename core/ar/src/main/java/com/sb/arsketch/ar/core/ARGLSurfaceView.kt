@@ -71,6 +71,9 @@ class ARGLSurfaceView(
     }
 
     fun release() {
+        onTouchDown = null
+        onTouchMove = null
+        onTouchUp = null
         arRenderer.release()
     }
 }

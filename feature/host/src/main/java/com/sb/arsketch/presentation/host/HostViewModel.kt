@@ -4,6 +4,7 @@ import android.view.SurfaceView
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sb.arsketch.ar.core.AnchorManager
 import com.sb.arsketch.ar.core.DrawingController
 import com.sb.arsketch.ar.core.RemoteBrushInfo
 import com.sb.arsketch.domain.model.BrushSettings
@@ -36,6 +37,7 @@ class HostViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val streamingSession: HostStreamingSession,
     private val drawingController: DrawingController,
+    private val anchorManager: AnchorManager,
     private val createStrokeUseCase: CreateStrokeUseCase,
     private val addPointToStrokeUseCase: AddPointToStrokeUseCase,
     private val undoStrokeUseCase: UndoStrokeUseCase,
@@ -97,6 +99,10 @@ class HostViewModel @Inject constructor(
 
     private fun onTouchStart(point: Point3D, anchorId: String?) {
         val state = _uiState.value
+
+        // Redo 히스토리 폐기 시 해당 anchor 해제
+        releaseAnchorsForStrokes(state.undoneStrokes)
+
         val stroke = createStrokeUseCase(
             startPoint = point,
             brush = state.brushSettings,
@@ -156,6 +162,9 @@ class HostViewModel @Inject constructor(
     private fun onRemoteTouchStart(
         point: Point3D, anchorId: String?, color: Int, thickness: Float, mode: DrawingMode
     ) {
+        // Redo 히스토리 폐기 시 해당 anchor 해제
+        releaseAnchorsForStrokes(_uiState.value.undoneStrokes)
+
         val brush = BrushSettings(
             color = color,
             thickness = BrushSettings.Thickness.entries.minByOrNull {
@@ -251,6 +260,12 @@ class HostViewModel @Inject constructor(
     }
 
     private fun clearAll() {
+        val state = _uiState.value
+
+        // 모든 스트로크의 anchor 해제
+        releaseAnchorsForStrokes(state.strokes)
+        releaseAnchorsForStrokes(state.undoneStrokes)
+
         val (newStrokes, newUndoneStrokes) = clearAllStrokesUseCase()
 
         _uiState.update {
@@ -264,6 +279,13 @@ class HostViewModel @Inject constructor(
         }
 
         publishStrokeEvent(StrokeEvent.AllCleared())
+    }
+
+    private fun releaseAnchorsForStrokes(strokes: List<Stroke>) {
+        val anchorIds = strokes.mapNotNull { it.anchorId }
+        if (anchorIds.isNotEmpty()) {
+            anchorManager.releaseAnchors(anchorIds)
+        }
     }
 
     fun getStrokesForRendering(): Pair<List<Stroke>, Stroke?> {
