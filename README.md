@@ -7,9 +7,9 @@ Draw on surfaces or in mid-air using ARCore, and share your creation live with a
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/connect_screen.png" width="250" alt="Connect Screen">
-  <img src="docs/screenshots/host_screen.png" width="250" alt="Host Screen (AR Drawing)">
-  <img src="docs/screenshots/viewer_screen.png" width="250" alt="Viewer Screen">
+  <img src="docs/screenshots/connect_screen.png" height="500" alt="Connect Screen">
+  <img src="docs/screenshots/host_screen.png" height="500" alt="Host Screen (AR Drawing)">
+  <img src="docs/screenshots/viewer_screen.png" height="500" alt="Viewer Screen">
 </p>
 
 ## Features
