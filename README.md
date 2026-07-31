@@ -1,8 +1,8 @@
 # ArSketch
 
-Real-time AR drawing app that streams augmented reality sketches to web viewers via LiveKit.
+**Sketch in AR. Stream it live to any browser.**
 
-Draw on surfaces or in mid-air using ARCore, and share your creation live with anyone through a browser.
+Draw on real-world surfaces or in mid-air with ARCore, and share your creation in real time with anyone via LiveKit.
 
 ## Screenshots
 
